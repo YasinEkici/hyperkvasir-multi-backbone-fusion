@@ -1,0 +1,19 @@
+title: On-Edge Deployment of Vision Transformers for Medical Diagnostics Using the
+  Kvasir-Capsule Dataset
+authors:
+- Dara Varam
+- Lujain Khalil
+- Tamer Shanableh
+abstract: This paper aims to explore the possibility of utilizing vision transformers
+  (ViTs) for on-edge medical diagnostics by experimenting with the Kvasir-Capsule
+  image classification dataset, a largescale image dataset of gastrointestinal diseases.
+  Quantization techniques made available through TensorFlow Lite (TFLite), including
+  post-training float-16 (F16) quantization and quantization-aware training (QAT),
+  are applied to achieve reductions in model size, without compromising performance...
+keywords:
+- vision transformers
+- Kvasir-Capsule
+- TensorFlow Lite
+- quantization
+journal: Appl. Sci.
+year: 2024

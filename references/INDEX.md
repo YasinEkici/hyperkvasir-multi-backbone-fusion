@@ -1,14 +1,23 @@
-# References Index
-# References Index — Multi-CNN Feature Fusion Project
+# References Index — Multi-Backbone Feature Fusion (CNN + ViT)
 
 > **Purpose:** This file lists every paper to be referenced in the project,
 > organized by role and priority. It also defines the metadata, evidence, and
 > caveat structure required before a paper can be cited in the report or used by
 > a coding agent.
 >
-> **Scope update:** the project uses **MLP as the only classifier**. Papers using
-> SVM, RandomForest, XGBoost, or other classifiers are cited only as background
-> or methodological context, not as classifier choices for our implementation.
+> **Repo scope (2026-06):** this repository now hosts **two projects** — the
+> completed CNN fusion project (Sections A–G below) and the new **ViT fusion
+> project**. ViT-specific additions are consolidated in **Section H**; the CNN
+> backbone references (ResNet/MobileNet/EfficientNet) remain valid as
+> comparison/prior-work. See `docs/vit/project_plan.md` for the ViT scope.
+>
+> **Classifier scope:** both projects use **MLP as the only classifier**. Papers
+> using SVM, RandomForest, XGBoost, or other classifiers are cited only as
+> background or methodological context.
+>
+> **Folder convention note:** earlier "Target file" paths below were written as
+> flat `*.md`; the actual layout is one folder per paper containing
+> `paper.md` + `metadata.yaml` + `original.pdf` + `assets/`.
 
 ---
 
@@ -207,6 +216,12 @@ Use for motivation and methodological framing, not as an implementation target.
   - `references/methodology_fusion/gmu_arevalo_2020_ncaa.md`
 - **Use:** implement one beyond-spec fusion arm after concat and weighted fusion.
 - **Priority:** core advanced method.
+- **Shared with ViT project (2026-06):** the `gmu_arevalo_2017_iclr_workshop/`
+  folder is reused by the ViT fusion project as an **optional/stretch** fusion
+  arm (mandatory ViT fusions are concat + weighted only; see Section H and
+  `docs/vit/project_plan.md` VLD-07). Backbone-agnostic: operates on the 512-d
+  projected features. The 2020 NCAA folder is not present; the 2017 workshop
+  stub is sufficient to cite.
 
 ### 11. AFF — Attentional Feature Fusion (STRETCH)
 
@@ -286,12 +301,10 @@ Use for motivation and methodological framing, not as an implementation target.
   Descent with Warm Restarts. *ICLR*. arXiv:1608.03983.
 - **Target file:** `references/methodology_training/cosine_annealing_loshchilov_2017.md`
 
-### 21. SWA / EMA (Izmailov et al. 2018)
+### 21. SWA / EMA (Izmailov et al. 2018) — **REMOVED (2026-06)**
 
-- **Citation:** Izmailov, P., Podoprikhin, D., Garipov, T., Vetrov, D., & Wilson,
-  A. G. (2018). Averaging Weights Leads to Wider Optima and Better
-  Generalization. *UAI*. arXiv:1803.05407.
-- **Target file:** `references/methodology_training/swa_izmailov_2018_uai.md`
+- **Status:** folder deleted. The ViT project uses EMA, not SWA, and no canonical
+  SWA citation is needed. Not cited.
 
 ### 22. RandAugment (Cubuk et al. 2020)
 
@@ -299,10 +312,10 @@ Use for motivation and methodological framing, not as an implementation target.
   RandAugment. *NeurIPS Workshops*.
 - **Target file:** `references/methodology_training/randaugment_cubuk_2020.md`
 
-### 23. DropBlock (Ghiasi et al. 2018) — optional
+### 23. DropBlock (Ghiasi et al. 2018) — **REMOVED (2026-06)**
 
-- **Citation:** Ghiasi, G., Lin, T.-Y., & Le, Q. (2018). DropBlock. *NeurIPS*.
-- **Target file:** `references/methodology_training/dropblock_ghiasi_2018_neurips.md`
+- **Status:** folder deleted. DropBlock is conv-feature-map specific; the ViT
+  project uses **stochastic depth / drop_path** instead (see Section H, #35). Not cited.
 
 ---
 
@@ -369,6 +382,106 @@ Use for motivation and methodological framing, not as an implementation target.
 - **Code/Data:** https://github.com/AlexOlsen/DeepWeeds
 - **Target file:** `references/secondary_dataset/deepweeds_olsen_2019_scirep.md`
 - **Use:** stretch domain-generality test.
+
+---
+
+## Section H — ViT Project References (added 2026-06)
+
+All folders below contain auto-extracted `paper.md` + `metadata.yaml` +
+`original.pdf` + `assets/`. Backbone model strings were verified loadable in
+timm 1.x with 768-d pooled output (see `docs/vit/project_structure.md §2.1`).
+
+### H.1 ViT Backbones (mandatory + 3rd model)
+
+#### 32. Vanilla ViT (Dosovitskiy et al. 2021)
+
+- **Citation:** Dosovitskiy, A., et al. (2021). An Image is Worth 16x16 Words:
+  Transformers for Image Recognition at Scale. *ICLR*. arXiv:2010.11929.
+- **Folder:** `references/methodology_backbones/vit_dosovitskiy_2021_iclr/`
+- **timm:** `vit_base_patch16_224.orig_in21k_ft_in1k` (768-d, CLS token).
+- **Use:** mandatory backbone #1 — isotropic, supervised. ViT-Base = 12 layers,
+  hidden 768, 86M (paper Table 1).
+
+#### 33. Swin Transformer (Liu et al. 2021)
+
+- **Citation:** Liu, Z., Lin, Y., Cao, Y., Hu, H., Wei, Y., Zhang, Z., Lin, S., &
+  Guo, B. (2021). Swin Transformer: Hierarchical Vision Transformer using Shifted
+  Windows. *ICCV*. arXiv:2103.14030.
+- **Folder:** `references/methodology_backbones/swin_liu_2021_iccv/`
+- **timm:** `swin_tiny_patch4_window7_224.ms_in22k_ft_in1k` (768-d, global avg pool, no CLS).
+- **Use:** mandatory backbone #2 — hierarchical, shifted windows. Swin-T C=96,
+  depths {2,2,6,2}, ~29M (paper §3.3 / Table 1).
+
+#### 34. BEiT (Bao et al. 2022)
+
+- **Citation:** Bao, H., Dong, L., Piao, S., & Wei, F. (2022). BEiT: BERT
+  Pre-Training of Image Transformers. *ICLR*. arXiv:2106.08254.
+- **Folder:** `references/methodology_backbones/beit_bao_2022_iclr/`
+- **timm:** `beit_base_patch16_224.in22k_ft_in22k_in1k` (768-d).
+- **Use:** backbone #3 — same ViT-B scale but **self-supervised masked image
+  modeling** pretraining (distinct design axis vs ViT/Swin).
+
+### H.2 ViT Training Methodology
+
+#### 35. Stochastic Depth / drop_path (Huang et al. 2016)
+
+- **Citation:** Huang, G., Sun, Y., Liu, Z., Sedra, D., & Weinberger, K. Q.
+  (2016). Deep Networks with Stochastic Depth. *ECCV*. arXiv:1603.09382.
+- **Folder:** `references/methodology_training/stochastic_depth_huang_2016_eccv/`
+- **Use:** ViT regularization (replaces DropBlock); `drop_path_rate≈0.05` for fine-tuning.
+
+#### 36. MixUp (Zhang et al. 2018)
+
+- **Citation:** Zhang, H., Cisse, M., Dauphin, Y. N., & Lopez-Paz, D. (2018).
+  mixup: Beyond Empirical Risk Minimization. *ICLR*. arXiv:1710.09412.
+- **Folder:** `references/methodology_training/mixup_zhang_2018_iclr/`
+- **Use:** mild MixUp (0.1–0.2) for ViT fine-tuning; CutMix is reduced for endoscopy.
+
+#### 37. MAE (He et al. 2022) — optional
+
+- **Citation:** He, K., Chen, X., Xie, S., Li, Y., Dollár, P., & Girshick, R.
+  (2022). Masked Autoencoders Are Scalable Vision Learners. *CVPR*. arXiv:2111.06377.
+- **Folder:** `references/methodology_training/mae_he_2022_cvpr/`
+- **Use:** source of the ViT fine-tuning recipe (LLRD, warmup, drop_path) and SSL framing.
+
+### H.3 ViT Interpretability
+
+#### 38. Attention Rollout (Abnar & Zuidema 2020)
+
+- **Citation:** Abnar, S., & Zuidema, W. (2020). Quantifying Attention Flow in
+  Transformers. *ACL*. arXiv:2005.00928.
+- **Folder:** `references/methodology_evaluation/attention_rollout_abnar_2020_acl/`
+- **Use:** ViT-native interpretability (complements Grad-CAM); `A = 0.5·W_att + 0.5·I` rollout.
+
+### H.4 ViT / Fusion Baselines (GI endoscopy)
+
+#### 39. Wang et al. 2023 — HSW-ViT [HIGHEST PRIORITY ViT comparator]
+
+- **Citation:** Wang, W., Yan, X., & Tan, J. (2023). Vision Transformer With
+  Hybrid Shifted Windows for Gastrointestinal Endoscopy Image Classification.
+  *IEEE TCSVT*.
+- **Folder:** `references/primary_baselines/09_wang_2023_hsw_vit/`
+- **Comparability:** **direct** — reports HyperKvasir (≈86.81% acc) and Kvasir v2
+  (≈95.42%). Verify exact split/class count from paper tables before citing numbers.
+
+#### 40. Subedi et al. 2024 — CNN-Transformer Fusion
+
+- **Citation:** Subedi, A., Regmi, S., Regmi, N., Bhusal, B., Bagci, U., & Jha, D.
+  (2024). Classification of Endoscopy and Video Capsule Images using
+  CNN-Transformer Model. arXiv:2408.10733.
+- **Folder:** `references/primary_baselines/10_subedi_2024_cnn_swin_fusion/`
+- **Comparability:** contextual — DenseNet201 + Swin **image-branch fusion** on
+  GastroVision (22-class) and Kvasir-Capsule (14), **not** HyperKvasir 23-class.
+  Preprint. Use as a fusion-methodology precedent in the discussion.
+
+#### 41. Varam et al. 2024 — Edge ViTs (Kvasir-Capsule)
+
+- **Citation:** Varam, D., Khalil, L., & Shanableh, T. (2024). On-Edge Deployment
+  of Vision Transformers for Medical Diagnostics Using the Kvasir-Capsule Dataset.
+  *Applied Sciences, 14*(18), 8115. DOI: 10.3390/app14188115.
+- **Folder:** `references/primary_baselines/11_varam_2024_edge_vits_capsule/`
+- **Comparability:** contextual — lightweight ViT zoo (EfficientFormerV2, MobileViT,
+  RepViT) on Kvasir-Capsule; useful for lightweight-backbone discussion, not a direct comparator.
 
 ---
 

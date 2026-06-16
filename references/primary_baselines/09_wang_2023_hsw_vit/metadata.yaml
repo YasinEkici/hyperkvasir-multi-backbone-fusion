@@ -1,0 +1,23 @@
+title: Vision Transformer With Hybrid Shifted Windows for Gastrointestinal Endoscopy
+  Image Classification
+authors:
+- Wei Wang
+- Xin Yan
+- Jinhui Tan
+abstract: Automated classification of gastrointestinal endoscope images can help reduce
+  the workload of doctors and improve the accuracy of diagnoses. The rapidly developed
+  vision Transformer, represented by Swin Transformer, has become an impressive technique
+  for medical image classification. However, Swin Transformer cannot capture the long-range
+  dependency well in complex gastrointestinal endoscopy images. As a result, it fails
+  to represent features of some widely-spread targets in digestive tract images, such
+  as normal-z-line and esophagitis, effectively. To solve this problem, we propose
+  a novel vision Transformer model based on hybrid shifted windows for digestive tract
+  image classification, which can obtain both short-range and long-range dependency
+  concurrently.
+keywords:
+- Image classification
+- vision transformer
+- computer aided diagnosis
+- gastrointestinal endoscope
+journal: IEEE Transactions on Circuits and Systems for Video Technology (TCSVT)
+year: 2023
