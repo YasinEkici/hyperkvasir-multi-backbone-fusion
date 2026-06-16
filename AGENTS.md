@@ -1,8 +1,41 @@
 # AGENTS.md
 
-This repository implements a multi-CNN feature-fusion classifier for the
-HyperKvasir 23-class gastrointestinal endoscopy benchmark, as the term project
-for a Deep Learning course (deadline: 8 June 2026).
+This repository implements multi-backbone feature-fusion classifiers for the
+HyperKvasir 23-class gastrointestinal endoscopy benchmark, as Deep Learning
+course term projects.
+
+## Two projects in this repo — read this first
+
+This repository hosts **two projects** that share one engine (`src/`, `scripts/`,
+`data/`, `references/`, evaluation):
+
+1. **CNN fusion (completed, frozen)** — root `project_structure.md` /
+   `project_plan.md` / `docs/decisions.md` (PLD-*); exact submission at git tag
+   `cnn-submission`. Deadline was 8 June 2026.
+2. **ViT fusion (active)** — read `docs/vit/project_structure.md`,
+   `docs/vit/project_plan.md`, `docs/vit/decisions.md` (VLD-*),
+   `docs/vit/final_assignment.md`, and the active exec-plan in `docs/exec-plans/active/`.
+
+**When working on the ViT project, the following CNN ground rules are OVERRIDDEN:**
+
+- **timm IS required** for the ViT backbones — `vit_base_patch16_224`, Swin-T,
+  BEiT-B — loaded via `timm.create_model(..., pretrained=True, num_classes=0)`
+  (VLD-03). The "do not use timm" rule below applies to the CNN backbones only.
+- **No BatchNorm logic** — ViTs use LayerNorm. The "freeze BN running stats" rule
+  is irrelevant; a frozen branch is `.eval()` to disable drop_path, and fine-tune
+  uses a small `drop_path_rate` (VLD-08, last 3 blocks).
+- **Feature dim is 768** for all three ViTs (not the CNN 2048/1280). Do not
+  hard-code `forward_features(x)[:,0]` — it is wrong for Swin/BEiT.
+- **Paths are namespaced under `vit/`**: `configs/vit/`, `results/vit/runs/`,
+  `results/vit/feature_cache/`, `reports/vit/`. Log decisions in
+  `docs/vit/decisions.md`, runs in `docs/vit/experiment_log.md`, progress in
+  `docs/vit/results_progress.md`.
+- **Never spend Colab A100 units on frozen work** (VLD-11). Do not edit the frozen
+  CNN files at the repo root.
+
+Everything else below (uv usage, MLP-only classifier, no large artifacts in git,
+references workflow, citation traceability, stop-and-ask triggers) applies to
+both projects.
 
 ## Read first
 

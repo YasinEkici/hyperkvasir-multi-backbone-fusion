@@ -1,0 +1,23 @@
+title: Classification of Endoscopy and Video Capsule Images using CNN-Transformer
+  Model
+authors:
+- Aliza Subedi
+- Smriti Regmi
+- Nisha Regmi
+- Bhumi Bhusal
+- Ulas Bagci
+- Debesh Jha
+abstract: Gastrointestinal cancer is the leading cause of cancer-related incidence
+  and death. Therefore, it is important to develop a novel computer-aided diagnosis
+  system for early detection and enhanced treatment... The results underscore the
+  potential of our hybrid CNN-Transformer model in aiding the early and accurate detection
+  of gastrointestinal (GI) anomalies.
+keywords:
+- Swin Transformer
+- Deep learning
+- Image classification
+- Gastrointestinal tract
+- GastroVision
+- Kvasir-Capsule
+journal: ''
+year: null
