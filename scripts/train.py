@@ -26,6 +26,7 @@ from src.data.manifests import read_manifest_csv
 from src.models.classifiers import MLPClassifier
 from src.models.full_model import MultiCNNFusionClassifier
 from src.models.projections import BranchProjection
+from src.models.vit_backbones import is_vit_backbone
 from src.training.ema import EMA
 from src.training.losses import build_loss
 from src.training.optimizers import build_adamw_with_llrd, build_optimizer
@@ -33,7 +34,7 @@ from src.training.schedulers import build_scheduler
 from src.training.trainer import Trainer
 from src.utils.checkpointing import load_checkpoint
 from src.utils.logging import get_logger, save_metrics
-from src.utils.paths import feature_cache_dir, project_root, results_dir
+from src.utils.paths import project_root
 from src.utils.reproducibility import seed_all
 
 logger = get_logger(__name__)
@@ -43,6 +44,35 @@ BACKBONE_DIMS: dict[str, int] = {
     "mobilenetv2": 1280,
     "efficientnetb0": 1280,
 }
+
+VIT_FEATURE_DIM = 768
+
+
+def _backbone_feature_dim(name: str) -> int:
+    """Return cached feature dimension for a CNN or ViT backbone."""
+    if name in BACKBONE_DIMS:
+        return BACKBONE_DIMS[name]
+    if is_vit_backbone(name):
+        return VIT_FEATURE_DIM
+    raise KeyError(f"Unknown backbone feature dimension for {name!r}")
+
+
+def _all_vit_backbones(backbone_names: list[str]) -> bool:
+    return bool(backbone_names) and all(is_vit_backbone(name) for name in backbone_names)
+
+
+def _run_dir(exp_id: str, *, vit: bool) -> Path:
+    root = project_root()
+    path = root / "results" / "vit" / "runs" / exp_id if vit else root / "results" / "runs" / exp_id
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _feature_cache_dir(*, vit: bool) -> Path:
+    root = project_root()
+    path = root / "results" / "vit" / "feature_cache" if vit else root / "results" / "feature_cache"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 # ---------------------------------------------------------------------------
@@ -64,7 +94,7 @@ class FrozenHeadModel(nn.Module):
         super().__init__()
         self.backbone_names = backbone_names
         self.fusion_type = fusion_type
-        self.backbone_dims = [BACKBONE_DIMS[n] for n in backbone_names]
+        self.backbone_dims = [_backbone_feature_dim(n) for n in backbone_names]
 
         self.projections = nn.ModuleDict(
             {
@@ -147,6 +177,8 @@ def _load_split_features(
             "std": std,
             "image_size": dataset_config.get("image_size", 224),
         }
+        if _all_vit_backbones(missing_backbones):
+            cache_config["crop_pct"] = dataset_config.get("crop_pct", 0.9)
         cache_frozen_features(
             backbones=missing_backbones,
             dataset_config=cache_config,
@@ -374,9 +406,10 @@ def main() -> None:
         run_name = f"{run_name}_seed{seed}"
     if args.fold is not None and args.fold > 0:
         run_name = f"{run_name}_fold_{args.fold}"
-    run_dir = results_dir(run_name)
 
     backbone_names: list[str] = method_cfg["backbone_names"]
+    is_vit_run = _all_vit_backbones(backbone_names)
+    run_dir = _run_dir(run_name, vit=is_vit_run)
     projection_dim: int = int(method_cfg.get("projection_dim", 512))
     fusion_type: str = method_cfg.get("fusion_type", "none")
     mlp_hidden: list[int] = method_cfg.get("mlp_hidden", [256])
@@ -449,7 +482,7 @@ def main() -> None:
         # ---- Frozen feature extraction path (original, untouched) ----
         logger.info("Frozen mode: using cached features")
 
-        cache_dir = feature_cache_dir()
+        cache_dir = _feature_cache_dir(vit=is_vit_run)
         logger.info("Loading features for fold %d from %s", fold, cache_dir)
         split_data = _load_split_features(
             backbone_names=backbone_names,

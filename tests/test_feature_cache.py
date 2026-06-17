@@ -3,8 +3,11 @@ import torch
 import pytest
 from pathlib import Path
 from PIL import Image
+from torch import nn
+from torchvision import transforms
+from torchvision.transforms import InterpolationMode
 
-from src.data.feature_cache import cache_frozen_features
+from src.data.feature_cache import _build_transform, cache_frozen_features
 
 
 @pytest.fixture
@@ -66,3 +69,84 @@ def test_cache_frozen_features_e2e(tmp_path: Path, dummy_dataset: Path) -> None:
     
     assert "config_hash" in data
     assert isinstance(data["config_hash"], str)
+
+
+def test_cache_frozen_features_vit_uses_vit_extractor(
+    tmp_path: Path,
+    dummy_dataset: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DummyViTFeatureExtractor(nn.Module):
+        feature_dim = 768
+
+        def __init__(self, name: str, pretrained: bool, unfreeze_blocks: int) -> None:
+            super().__init__()
+            self.name = name
+            self.pretrained = pretrained
+            self.unfreeze_blocks = unfreeze_blocks
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return torch.ones(x.shape[0], self.feature_dim)
+
+    monkeypatch.setattr(
+        "src.data.feature_cache.ViTFeatureExtractor",
+        DummyViTFeatureExtractor,
+    )
+
+    out_dir = tmp_path / "results" / "vit" / "feature_cache"
+    config = {
+        "mean": [0.485, 0.456, 0.406],
+        "std": [0.229, 0.224, 0.225],
+        "image_size": 224,
+        "crop_pct": 0.9,
+    }
+
+    saved_paths = cache_frozen_features(
+        backbones=["vit_b"],
+        dataset_config=config,
+        split_manifest=dummy_dataset,
+        output_dir=out_dir,
+        batch_size=2,
+        device="cpu",
+    )
+
+    cache_file = saved_paths["vit_b"]
+    assert cache_file.parent == out_dir
+    data = torch.load(cache_file)
+    assert data["features"].shape == (2, 768)
+    assert data["backbone"] == "vit_b"
+    assert len(data["paths"]) == 2
+
+
+def test_cache_frozen_features_rejects_mixed_preprocessing_families(
+    tmp_path: Path,
+    dummy_dataset: Path,
+) -> None:
+    with pytest.raises(ValueError, match="same preprocessing family"):
+        cache_frozen_features(
+            backbones=["mobilenetv2", "vit_b"],
+            dataset_config={"image_size": 224},
+            split_manifest=dummy_dataset,
+            output_dir=tmp_path / "cache",
+            batch_size=2,
+            device="cpu",
+        )
+
+
+def test_vit_transform_uses_bicubic_center_crop() -> None:
+    transform = _build_transform(
+        {
+            "image_size": 224,
+            "crop_pct": 0.9,
+            "mean": [0.485, 0.456, 0.406],
+            "std": [0.229, 0.224, 0.225],
+        },
+        is_vit=True,
+    )
+
+    resize, crop, *_ = transform.transforms
+    assert isinstance(resize, transforms.Resize)
+    assert resize.size == 248
+    assert resize.interpolation == InterpolationMode.BICUBIC
+    assert isinstance(crop, transforms.CenterCrop)
+    assert crop.size == (224, 224)

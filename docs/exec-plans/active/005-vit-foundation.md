@@ -2,7 +2,7 @@
 
 - **Sprint:** 1 (Foundation) · maps to `docs/vit/project_plan.md §3` (S1) and `§4` (Stage 0)
 - **Branch:** `sprint1/vit-foundation` (off `main`)
-- **Status:** active · **Created:** 2026-06-16
+- **Status:** active; Sprint 1 Slice 3 run complete, final plan move pending · **Created:** 2026-06-16
 - **Compute:** 0 A100 units (frozen path only — VLD-11)
 - Follow `AGENTS.md` ("Two projects" addendum — ViT work). Source of truth:
   `docs/vit/project_plan.md`; locked decisions: `docs/vit/decisions.md` (VLD-*).

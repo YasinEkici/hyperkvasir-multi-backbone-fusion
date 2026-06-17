@@ -7,10 +7,56 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
+from torchvision.transforms import InterpolationMode
 
 from src.data.datasets import HyperKvasirImageDataset
 from src.models.backbones import BackboneFeatureExtractor
+from src.models.vit_backbones import ViTFeatureExtractor, is_vit_backbone
 from src.utils.reproducibility import seed_all, seed_worker
+
+
+def _all_same_backbone_family(backbones: list[str]) -> bool:
+    """Return True when all requested backbones are CNNs or all are ViTs."""
+    if not backbones:
+        return True
+    first_is_vit = is_vit_backbone(backbones[0])
+    return all(is_vit_backbone(name) == first_is_vit for name in backbones)
+
+
+def _build_transform(dataset_config: dict, *, is_vit: bool) -> transforms.Compose:
+    """Build the cache transform without changing the legacy CNN path."""
+    mean = dataset_config.get("mean", [0.485, 0.456, 0.406])
+    std = dataset_config.get("std", [0.229, 0.224, 0.225])
+    size = dataset_config.get("image_size", (224, 224))
+    if isinstance(size, int):
+        size = (size, size)
+
+    if not is_vit:
+        return transforms.Compose([
+            transforms.Resize(size),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=mean, std=std),
+        ])
+
+    if size[0] != size[1]:
+        raise ValueError(f"ViT cache expects square image_size, got {size}")
+    image_size = int(size[0])
+    crop_pct = float(dataset_config.get("crop_pct", 0.9))
+    resize_size = int(image_size / crop_pct)
+
+    return transforms.Compose([
+        transforms.Resize(resize_size, interpolation=InterpolationMode.BICUBIC),
+        transforms.CenterCrop(image_size),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=mean, std=std),
+    ])
+
+
+def _build_extractor(name: str) -> BackboneFeatureExtractor | ViTFeatureExtractor:
+    """Build the correct frozen extractor for a CNN or ViT backbone."""
+    if is_vit_backbone(name):
+        return ViTFeatureExtractor(name=name, pretrained=True, unfreeze_blocks=0)
+    return BackboneFeatureExtractor(name=name, pretrained=True, unfreeze_blocks=0)
 
 
 def cache_frozen_features(
@@ -22,25 +68,21 @@ def cache_frozen_features(
     device: str = "cuda",
 ) -> dict[str, Path]:
     """Cache frozen backbone features for a split manifest."""
+    if not _all_same_backbone_family(backbones):
+        raise ValueError(
+            "cache_frozen_features expects all backbones in one call to use the "
+            "same preprocessing family. Call CNN and ViT caches separately."
+        )
+
     output_dir.mkdir(parents=True, exist_ok=True)
+    is_vit_cache = any(is_vit_backbone(name) for name in backbones)
     
     # Determinism
     seed_all(42)
     g = torch.Generator()
     g.manual_seed(42)
 
-    # Standard ImageNet transforms based on torchvision defaults
-    mean = dataset_config.get("mean", [0.485, 0.456, 0.406])
-    std = dataset_config.get("std", [0.229, 0.224, 0.225])
-    size = dataset_config.get("image_size", (224, 224))
-    if isinstance(size, int):
-        size = (size, size)
-        
-    transform = transforms.Compose([
-        transforms.Resize(size),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=mean, std=std),
-    ])
+    transform = _build_transform(dataset_config, is_vit=is_vit_cache)
 
     dataset = HyperKvasirImageDataset(manifest=split_manifest, transform=transform)
     
@@ -55,7 +97,7 @@ def cache_frozen_features(
 
     models = {}
     for name in backbones:
-        model = BackboneFeatureExtractor(name=name, pretrained=True, unfreeze_blocks=0)
+        model = _build_extractor(name)
         model = model.to(device)
         model.eval()
         models[name] = model
