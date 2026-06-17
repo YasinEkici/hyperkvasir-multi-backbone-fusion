@@ -1,14 +1,40 @@
-"""End-to-end multi-CNN fusion classifier."""
+"""End-to-end multi-backbone fusion classifier.
+
+Supports both CNN backbones (torchvision, via ``BackboneFeatureExtractor``)
+and ViT backbones (timm, via ``ViTFeatureExtractor``).  Dispatch is by
+backbone name: recognised ViT aliases / timm strings route to the ViT
+extractor; everything else routes to the CNN extractor.  The projection →
+fusion → MLP pipeline is backbone-agnostic.
+"""
 
 from torch import Tensor, nn
 
 from src.models.backbones import BackboneFeatureExtractor
 from src.models.projections import BranchProjection
 from src.models.classifiers import MLPClassifier
+from src.models.vit_backbones import ViTFeatureExtractor, is_vit_backbone
+
+
+def _build_extractor(
+    name: str, pretrained: bool, unfreeze_blocks: int
+) -> BackboneFeatureExtractor | ViTFeatureExtractor:
+    """Dispatch to CNN or ViT feature extractor by backbone name."""
+    if is_vit_backbone(name):
+        return ViTFeatureExtractor(
+            name=name, pretrained=pretrained, unfreeze_blocks=unfreeze_blocks
+        )
+    return BackboneFeatureExtractor(
+        name=name, pretrained=pretrained, unfreeze_blocks=unfreeze_blocks
+    )
 
 
 class MultiCNNFusionClassifier(nn.Module):
-    """End-to-end model: backbones -> projections -> fusion -> MLP head."""
+    """End-to-end model: backbones -> projections -> fusion -> MLP head.
+
+    Works with both CNN (torchvision) and ViT (timm) backbones.  The class
+    name is kept as ``MultiCNNFusionClassifier`` for backward compatibility
+    with existing CNN configs and checkpoints.
+    """
 
     def __init__(
         self,
@@ -29,12 +55,12 @@ class MultiCNNFusionClassifier(nn.Module):
         self.mlp_hidden = mlp_hidden
         self.dropout = dropout
 
-        # Initialize backbones
+        # Initialize backbones — dispatch CNN vs ViT by name
         self.backbones = nn.ModuleDict()
         self.projections = nn.ModuleDict()
         
         for name in backbone_names:
-            bb = BackboneFeatureExtractor(name=name, pretrained=True, unfreeze_blocks=unfreeze_blocks)
+            bb = _build_extractor(name=name, pretrained=True, unfreeze_blocks=unfreeze_blocks)
             self.backbones[name] = bb
             self.projections[name] = BranchProjection(in_dim=bb.feature_dim, out_dim=projection_dim)
 

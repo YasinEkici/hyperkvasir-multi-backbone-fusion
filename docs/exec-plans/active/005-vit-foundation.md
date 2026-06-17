@@ -94,6 +94,23 @@ ablation, no 5-fold — just a working foundation.
    under `results/vit/runs/`.
 8. **Green + log.** `uv run pytest tests/` passes; append results to the docs.
 
+### Implementation slices (execution order)
+
+The 8 steps above are implemented as **3 sequential slices**, each ending with its
+own `uv run pytest tests/` + approval gate (AGENTS task workflow). Dependency order
+is strict: **1 → 2 → 3**.
+
+| Slice | Name | Steps | Rationale | Done when |
+|---|---|---|---|---|
+| **1** | Model | 1, 2, 3 + shape tests of 6 | Pure model code, no data/training — fastest to test, foundational; factory + count-verify + dispatch are one unit | `(2,768)` asserts pass; CNN `full_model` still works; pytest green |
+| **2** | Inputs | 4, 5 | Prepares the run's inputs: cached ViT features + configs describing the experiments | ViT `.pt` aligned (count==dataset); configs parse; CNN cache byte-identical |
+| **3** | Run | 7, 8 | End-to-end validation; depends on Slices 1–2 | non-NaN macro-F1 + `metrics.json`; all pytest green; docs logged |
+
+- Slice 1 may optionally be split into **1a** (factory + count + tests) and **1b**
+  (dispatch) for smaller approval gates; combined is recommended (both are small).
+- In Slice 2, only the **single ViT-B** config + cache are on the critical path; the
+  remaining pair/triple configs are written but not executed until Sprint 2.
+
 ## 7. Risks
 
 - **timm path/count mismatch** → Step 2 verification (paths already confirmed present 2026-06-16).
