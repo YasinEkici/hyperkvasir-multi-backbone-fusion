@@ -1,0 +1,6 @@
+backbone_names: ["vit_b", "swin_t", "beit_b"]
+projection_dim: 512
+fusion_type: "weighted"
+classifier: "mlp"
+mlp_hidden: [256]
+dropout: 0.3

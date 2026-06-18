@@ -1,0 +1,6 @@
+backbone_names: ["vit_b", "swin_t"]
+projection_dim: 512
+fusion_type: "concat"
+classifier: "mlp"
+mlp_hidden: [256]
+dropout: 0.3

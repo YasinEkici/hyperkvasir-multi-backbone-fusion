@@ -1,0 +1,66 @@
+experiments:
+  - id: "01_single_vit_b_frozen_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/single_vit_b.yaml"
+    training: "configs/vit/training/vit_frozen.yaml"
+    fold: 0
+
+  - id: "02_single_swin_t_frozen_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/single_swin_t.yaml"
+    training: "configs/vit/training/vit_frozen.yaml"
+    fold: 0
+
+  - id: "03_single_beit_b_frozen_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/single_beit_b.yaml"
+    training: "configs/vit/training/vit_frozen.yaml"
+    fold: 0
+
+  - id: "04_pair_vit_b_swin_t_concat_frozen_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/pair_vit_b_swin_t_concat.yaml"
+    training: "configs/vit/training/vit_frozen.yaml"
+    fold: 0
+
+  - id: "05_pair_vit_b_beit_b_concat_frozen_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/pair_vit_b_beit_b_concat.yaml"
+    training: "configs/vit/training/vit_frozen.yaml"
+    fold: 0
+
+  - id: "06_pair_swin_t_beit_b_concat_frozen_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/pair_swin_t_beit_b_concat.yaml"
+    training: "configs/vit/training/vit_frozen.yaml"
+    fold: 0
+
+  - id: "07_pair_vit_b_swin_t_weighted_frozen_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/pair_vit_b_swin_t_weighted.yaml"
+    training: "configs/vit/training/vit_frozen.yaml"
+    fold: 0
+
+  - id: "08_pair_vit_b_beit_b_weighted_frozen_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/pair_vit_b_beit_b_weighted.yaml"
+    training: "configs/vit/training/vit_frozen.yaml"
+    fold: 0
+
+  - id: "09_pair_swin_t_beit_b_weighted_frozen_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/pair_swin_t_beit_b_weighted.yaml"
+    training: "configs/vit/training/vit_frozen.yaml"
+    fold: 0
+
+  - id: "10_triple_concat_frozen_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/triple_vit_swin_beit_concat.yaml"
+    training: "configs/vit/training/vit_frozen.yaml"
+    fold: 0
+
+  - id: "11_triple_weighted_frozen_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/triple_vit_swin_beit_weighted.yaml"
+    training: "configs/vit/training/vit_frozen.yaml"
+    fold: 0

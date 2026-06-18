@@ -1,0 +1,6 @@
+backbone_names: ["beit_b"]
+projection_dim: 512
+fusion_type: "none"
+classifier: "mlp"
+mlp_hidden: [256]
+dropout: 0.3

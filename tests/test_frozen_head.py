@@ -7,6 +7,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts import train
 from scripts.train import FrozenHeadModel
 
 BATCH = 4
@@ -17,6 +18,7 @@ PROJECTION_DIM = 512
 R = 2048   # resnet50
 M = 1280   # mobilenetv2
 E = 1280   # efficientnetb0
+V = 768    # ViT/Swin/BEiT native pooled dim
 
 
 def _make_model(backbone_names, fusion_type):
@@ -47,6 +49,12 @@ def test_single_mobilenetv2_output_shape():
 def test_single_efficientnetb0_output_shape():
     model = _make_model(["efficientnetb0"], "none")
     x = torch.randn(BATCH, E)
+    assert model(x).shape == (BATCH, NUM_CLASSES)
+
+
+def test_single_vit_b_output_shape():
+    model = _make_model(["vit_b"], "none")
+    x = torch.randn(BATCH, V)
     assert model(x).shape == (BATCH, NUM_CLASSES)
 
 
@@ -97,6 +105,20 @@ def test_triple_weighted_output_shape():
     assert out.shape == (BATCH, NUM_CLASSES)
 
 
+def test_triple_vit_concat_output_shape():
+    model = _make_model(["vit_b", "swin_t", "beit_b"], "concat")
+    x = torch.randn(BATCH, V + V + V)
+    out = model(x)
+    assert out.shape == (BATCH, NUM_CLASSES)
+
+
+def test_triple_vit_weighted_output_shape():
+    model = _make_model(["vit_b", "swin_t", "beit_b"], "weighted")
+    x = torch.randn(BATCH, V + V + V)
+    out = model(x)
+    assert out.shape == (BATCH, NUM_CLASSES)
+
+
 # --- Feature splitting correctness ---
 
 def test_pair_concat_split_is_order_dependent():
@@ -111,3 +133,25 @@ def test_pair_concat_split_is_order_dependent():
     # Both are valid shapes; just confirm no crash and shapes match
     assert out_rm.shape == (BATCH, NUM_CLASSES)
     assert out_mr.shape == (BATCH, NUM_CLASSES)
+
+
+def test_vit_run_and_cache_dirs_are_namespaced(tmp_path, monkeypatch):
+    monkeypatch.setattr(train, "project_root", lambda: tmp_path)
+
+    run_dir = train._run_dir("01_single_vit_b_frozen_official", vit=True)
+    cache_dir = train._feature_cache_dir(vit=True)
+
+    assert run_dir == tmp_path / "results" / "vit" / "runs" / "01_single_vit_b_frozen_official"
+    assert cache_dir == tmp_path / "results" / "vit" / "feature_cache"
+    assert run_dir.exists()
+    assert cache_dir.exists()
+
+
+def test_cnn_run_and_cache_dirs_remain_legacy(tmp_path, monkeypatch):
+    monkeypatch.setattr(train, "project_root", lambda: tmp_path)
+
+    run_dir = train._run_dir("01_single_resnet50_frozen_official", vit=False)
+    cache_dir = train._feature_cache_dir(vit=False)
+
+    assert run_dir == tmp_path / "results" / "runs" / "01_single_resnet50_frozen_official"
+    assert cache_dir == tmp_path / "results" / "feature_cache"

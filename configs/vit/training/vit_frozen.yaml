@@ -1,0 +1,29 @@
+epochs: 60
+batch_size: 64
+mixed_precision: true
+unfreeze_blocks: 0
+optimizer:
+  type: "adamw"
+  head_lr: 1.0e-3
+  weight_decay: 0.05
+scheduler:
+  type: "cosine_with_warmup"
+  warmup_epochs: 5
+loss:
+  type: "ce_label_smooth"
+  label_smoothing: 0.05
+augmentation:
+  mixup: {alpha: 0.0, prob: 0.0}
+  cutmix: {alpha: 0.0, prob: 0.0}
+  horizontal_flip: false
+ema:
+  enabled: false
+early_stopping:
+  patience: 8
+  monitor: "val_macro_f1"
+reproducibility:
+  seed: 42
+  deterministic: true
+  cudnn_benchmark: false
+tracking:
+  backend: "json"

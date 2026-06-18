@@ -13,20 +13,29 @@
 ---
 
 ## Sprint 1 — Foundation
-*Status: not started*
+*Status: complete. Slice 3 single ViT-B frozen smoke run completed on 2026-06-17.*
 
 ### Implementation milestones
 
 | # | Component | File(s) | Done |
 |---|---|---|:--:|
 | 1 | `vit-fusion` branch + project docs (`docs/vit/`) | — | ✅ |
-| 2 | timm ViT backbone factory | `src/models/vit_backbones.py` | ☐ |
-| 3 | Extractor dispatch (CNN vs ViT) | `src/models/full_model.py` | ☐ |
-| 4 | `configs/vit/` skeleton (method + training) | `configs/vit/` | ☐ |
-| 5 | Backbone shape smoke test ((B,768) for V/S/B) | `tests/` | ☐ |
+| 2 | timm ViT backbone factory | `src/models/vit_backbones.py` | yes |
+| 3 | Extractor dispatch (CNN vs ViT) | `src/models/full_model.py` | yes |
+| 4 | `configs/vit/` skeleton (method + training) | `configs/vit/` | yes |
+| 5 | Backbone shape smoke test ((B,768) for V/S/B) | `tests/` | yes |
+| 6 | ViT-aware frozen feature-cache code path | `src/data/feature_cache.py`, `scripts/extract_features.py` | yes |
+| 7 | Single ViT-B frozen smoke run | `results/vit/runs/01_single_vit_b_frozen_official/metrics.json` | yes |
 
 ### Results
-*(none yet — Sprint 2 frozen ablation produces the first numbers)*
+| config | backbones | fusion | transfer | fold | Acc | macro-F1 | Source |
+|---|---|---|---|---:|---:|---:|---|
+| `01_single_vit_b_frozen_official` | V | none | frozen | 0 | 0.8416588124 | 0.5575947093 | `results/vit/runs/01_single_vit_b_frozen_official/metrics.json` |
+
+Cache validation: `results/vit/feature_cache/fold_0_vit_b_features.pt` has
+`10662 x 768` features, matching the fold manifest dataset count.
+
+Validation: `uv run pytest tests/` passed on 2026-06-17 (`217 passed`).
 
 ---
 
