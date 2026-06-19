@@ -39,6 +39,7 @@ class Trainer:
         cutmix_prob: float = 0.0,
         mixup_alpha: float = 0.0,
         mixup_prob: float = 0.0,
+        progress_log_interval: int = 0,
     ):
         self.model = model
         self.optimizer = optimizer
@@ -54,6 +55,9 @@ class Trainer:
         self.cutmix_prob = cutmix_prob
         self.mixup_alpha = mixup_alpha
         self.mixup_prob = mixup_prob
+        # When > 0, log a heartbeat every N steps inside an epoch (fine-tune
+        # path only; 0 keeps frozen/cached-feature epochs silent).
+        self.progress_log_interval = progress_log_interval
 
         self.scaler = torch.amp.GradScaler("cuda") if self.mixed_precision else None
 
@@ -162,8 +166,9 @@ class Trainer:
     def _train_epoch(self, loader: DataLoader) -> float:
         self.model.train()
         total_loss = 0.0
+        n_batches = len(loader)
 
-        for features, labels in loader:
+        for step, (features, labels) in enumerate(loader, start=1):
             features = features.to(self.device)
             labels = labels.to(self.device)
 
@@ -184,6 +189,13 @@ class Trainer:
                 self.scheduler.step()
 
             total_loss += loss.item() * len(labels)
+
+            if self.progress_log_interval and (
+                step % self.progress_log_interval == 0 or step == n_batches
+            ):
+                logger.info(
+                    "    step %d/%d — loss: %.4f", step, n_batches, loss.item()
+                )
 
         return total_loss / len(loader.dataset)
 

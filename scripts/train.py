@@ -605,6 +605,9 @@ def main() -> None:
     # ------------------------------------------------------------------
 
     steps_per_epoch = max(1, len(train_loader))
+    # Intra-epoch progress heartbeat (~20 lines/epoch) for the fine-tune path
+    # only; frozen cached-feature epochs stay silent (interval 0).
+    progress_log_interval = max(1, steps_per_epoch // 20) if unfreeze_blocks > 0 else 0
     scheduler = build_scheduler(
         optimizer,
         training_cfg.get("scheduler", {}),
@@ -628,6 +631,7 @@ def main() -> None:
         cutmix_prob=cutmix_prob,
         mixup_alpha=mixup_alpha,
         mixup_prob=mixup_prob,
+        progress_log_interval=progress_log_interval,
     )
 
     logger.info("Starting training — %d epochs, patience %d", epochs, early_stopping_patience)
