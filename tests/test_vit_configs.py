@@ -18,7 +18,8 @@ def test_vit_experiment_matrix_configs_parse() -> None:
     matrix = _read_yaml(matrix_path)
     experiments = matrix["experiments"]
 
-    assert len(experiments) == 11
+    # 11 Sprint 2 frozen rows + 5 Sprint 3 fine-tune rows.
+    assert len(experiments) == 16
     assert experiments[0]["id"] == "01_single_vit_b_frozen_official"
 
     expected_fusions = {"none", "concat", "weighted"}
@@ -41,6 +42,33 @@ def test_vit_experiment_matrix_configs_parse() -> None:
             assert method["fusion_type"] == "none"
         else:
             assert method["fusion_type"] in {"concat", "weighted"}
+
+
+def test_sprint3_finetune_rows() -> None:
+    """Exactly the five locked Sprint 3 candidates, each on the FT recipe."""
+    matrix = _read_yaml(ROOT / "configs" / "vit" / "experiment_matrix.yaml")
+    experiments = {e["id"]: e for e in matrix["experiments"]}
+
+    expected = {
+        "02_single_swin_t_finetune_official": "single_swin_t",
+        "04_pair_vit_b_swin_t_concat_finetune_official": "pair_vit_b_swin_t_concat",
+        "05_pair_vit_b_beit_b_concat_finetune_official": "pair_vit_b_beit_b_concat",
+        "09_pair_swin_t_beit_b_weighted_finetune_official": "pair_swin_t_beit_b_weighted",
+        "11_triple_weighted_finetune_official": "triple_vit_swin_beit_weighted",
+    }
+
+    finetune_ids = {e["id"] for e in matrix["experiments"] if "finetune" in e["id"]}
+    assert finetune_ids == set(expected), "Exactly the 5 locked FT candidates only"
+
+    for exp_id, method_stem in expected.items():
+        row = experiments[exp_id]
+        assert row["training"] == "configs/vit/training/vit_finetune.yaml"
+        assert row["method"] == f"configs/vit/method/{method_stem}.yaml"
+        assert row["fold"] == 0
+        # No GMU or non-MLP arm sneaks in (VLD-06/VLD-07).
+        method = _read_yaml(ROOT / row["method"])
+        assert method["classifier"] == "mlp"
+        assert method["fusion_type"] in {"none", "concat", "weighted"}
 
 
 def test_vit_frozen_training_config_is_frozen_mlp_only() -> None:

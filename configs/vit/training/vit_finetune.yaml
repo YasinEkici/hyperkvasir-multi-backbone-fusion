@@ -1,0 +1,65 @@
+# ViT fine-tune training recipe (Sprint 3, VLD-15).
+#
+# Used by the five Sprint 3 fine-tune rows in configs/vit/experiment_matrix.yaml.
+# `unfreeze_blocks > 0` routes scripts/train.py into the end-to-end image-loader
+# fine-tune branch (not the frozen cached-feature path), so this config never
+# inherits the frozen cache-only semantics of vit_frozen.yaml.
+#
+# VLD-08 unfreeze scope: ViT-B/BEiT-B = last 3 transformer blocks (blocks[9:]);
+# Swin-T = final stage (layers[3]). `unfreeze_blocks: 3` is correct for
+# ViT/BEiT. NOTE (Slice 2): the current Swin path in vit_backbones.py treats
+# this as "last 3 stages" and must be fixed to final-stage-only before A100 runs.
+
+epochs: 60
+batch_size: 32          # smaller than frozen (64) — image-loader path forwards
+                        # full backbones; reduces OOM risk for triple-ViT on A100.
+mixed_precision: true
+unfreeze_blocks: 3      # ViT/BEiT last 3 blocks (VLD-08); Swin mapping fixed in Slice 2.
+
+# drop_path ~0.05 (VLD-15). NOTE (Slice 2): not yet plumbed into timm
+# create_model; key is declared here so Slice 2 only needs to read it.
+drop_path_rate: 0.05
+
+optimizer:
+  type: "adamw"
+  head_lr: 1.0e-3       # projection / fusion / classifier (VLD-15)
+  # Single backbone_lr serves both ViT/BEiT (2e-5–5e-5) and Swin (3e-5–8e-5)
+  # because all five rows share this config. 5e-5 is inside both ranges.
+  backbone_lr: 5.0e-5
+  weight_decay: 0.05
+  llrd_decay: 0.7       # layer-wise LR decay (VLD-15: 0.65–0.75).
+                        # NOTE (Slice 2): build_adamw_with_llrd is CNN-only;
+                        # ViT/BEiT/Swin LLRD groups must be added.
+
+scheduler:
+  type: "cosine_with_warmup"
+  warmup_epochs: 5
+
+loss:
+  type: "ce_label_smooth"
+  label_smoothing: 0.1  # VLD-15: 0.05–0.1.
+
+augmentation:
+  # mild MixUp, CutMix off (VLD-15: CutMix can erase tiny mucosal lesions).
+  # NOTE (Slice 2): the trainer supports CutMix only; MixUp must be added.
+  mixup: {alpha: 0.2, prob: 0.5}
+  cutmix: {alpha: 0.0, prob: 0.0}
+  rand_augment: {N: 2, M: 9}
+  horizontal_flip: true
+
+ema:
+  enabled: true
+  decay: 0.9998         # VLD-15.
+  start_epoch: 5        # begin EMA after warmup so warmup-phase weights aren't averaged.
+
+early_stopping:
+  patience: 8
+  monitor: "val_macro_f1"
+
+reproducibility:
+  seed: 42
+  deterministic: true
+  cudnn_benchmark: false
+
+tracking:
+  backend: "json"
