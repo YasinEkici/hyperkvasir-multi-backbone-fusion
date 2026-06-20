@@ -61,6 +61,48 @@ def _all_vit_backbones(backbone_names: list[str]) -> bool:
     return bool(backbone_names) and all(is_vit_backbone(name) for name in backbone_names)
 
 
+def require_a100_for_finetune(
+    device: str,
+    allow_non_a100: bool,
+    *,
+    device_name: str | None = None,
+) -> str | None:
+    """A100 provenance gate for fine-tune runs (VLD-11; reuses CNN D-09 intent).
+
+    Fine-tuning is the only stage allowed to spend A100 units, and frozen
+    caches/heads must never run on the A100 runtime.  This gate fails early
+    unless CUDA is active on an A100 device.  ``allow_non_a100`` is an explicit,
+    loudly-logged escape hatch for off-A100 dev/smoke runs.
+
+    ``device_name`` may be injected for testing; otherwise it is read from the
+    live CUDA device when ``device == "cuda"``.
+
+    Returns the resolved device name (or the bypass device) for logging.
+    Raises ``SystemExit`` when the gate fails and the bypass is not set.
+    """
+    if device_name is None and device == "cuda" and torch.cuda.is_available():
+        device_name = torch.cuda.get_device_name(0)
+
+    if device_name is not None and "A100" in device_name:
+        return device_name
+
+    if allow_non_a100:
+        logger.warning(
+            "A100 provenance gate BYPASSED via --allow-non-a100 "
+            "(device=%s, cuda_device_name=%s). VLD-11: A100 units are for "
+            "fine-tuning only; off-A100 runs must be flagged.",
+            device, device_name,
+        )
+        return device_name or device
+
+    raise SystemExit(
+        "A100 PROVENANCE GATE FAILED: Sprint 3 fine-tune requires an A100 "
+        f"(VLD-11). device={device!r}, cuda_device_name={device_name!r}. "
+        "Re-run on an A100 runtime, or pass --allow-non-a100 for an explicit "
+        "off-A100 run."
+    )
+
+
 def _run_dir(exp_id: str, *, vit: bool) -> Path:
     root = project_root()
     path = root / "results" / "vit" / "runs" / exp_id if vit else root / "results" / "runs" / exp_id
@@ -260,6 +302,7 @@ def _make_image_loaders(
     training_cfg: dict,
     root: Path,
     batch_size: int,
+    interpolation: transforms.InterpolationMode = transforms.InterpolationMode.BILINEAR,
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
     """Build train / val / test image DataLoaders for fine-tuning.
 
@@ -269,6 +312,10 @@ def _make_image_loaders(
     Preprocessing follows project_structure.md §2.3:
         Resize shortest edge to 256 → RandomCrop(224) train / CenterCrop(224) val.
         ImageNet normalisation: mean=[0.485,0.456,0.406] std=[0.229,0.224,0.225].
+
+    ``interpolation`` controls the resize kernel: ViT fine-tune runs must pass
+    BICUBIC (VLD-09 — timm ViT/Swin/BEiT weights were trained with bicubic);
+    the default BILINEAR preserves the existing CNN image-loader behaviour.
     """
     rows = read_manifest_csv(fold_manifest)
     split_rows: dict[str, list[dict]] = {"train": [], "val": [], "test": []}
@@ -289,7 +336,7 @@ def _make_image_loaders(
     hflip: bool = bool(aug_cfg.get("horizontal_flip", True))
 
     train_tfm_list: list = [
-        transforms.Resize(resize_to),
+        transforms.Resize(resize_to, interpolation=interpolation),
         transforms.RandomCrop(image_size),
     ]
     if hflip:
@@ -302,7 +349,7 @@ def _make_image_loaders(
     train_transform = transforms.Compose(train_tfm_list)
 
     val_transform = transforms.Compose([
-        transforms.Resize(resize_to),
+        transforms.Resize(resize_to, interpolation=interpolation),
         transforms.CenterCrop(image_size),
         transforms.ToTensor(),
         transforms.Normalize(mean, std),
@@ -355,6 +402,12 @@ def main() -> None:
         default=None,
         help="Override reproducibility seed; seeds other than 42 write to a "
         "seed-tagged run dir ({exp}_seed{S}[_fold_{k}]) to avoid overwriting.",
+    )
+    parser.add_argument(
+        "--allow-non-a100",
+        action="store_true",
+        help="Bypass the A100 provenance gate for fine-tune runs (VLD-11). "
+        "Use only for explicit off-A100 dev/smoke runs; logged loudly.",
     )
     args = parser.parse_args()
 
@@ -430,14 +483,32 @@ def main() -> None:
         # ---- Fine-tune path ----
         logger.info("Fine-tune mode: unfreeze_blocks=%d", unfreeze_blocks)
 
+        # A100 provenance gate (VLD-11): fine-tuning is the only A100-eligible
+        # stage; abort early on non-A100 unless explicitly allowed.
+        resolved_device_name = require_a100_for_finetune(device, args.allow_non_a100)
+        logger.info(
+            "A100 provenance: device=%s cuda_device_name=%s",
+            device, resolved_device_name,
+        )
+
+        # VLD-09: ViT runs use bicubic resize; CNN runs keep bilinear.
+        interpolation = (
+            transforms.InterpolationMode.BICUBIC
+            if is_vit_run
+            else transforms.InterpolationMode.BILINEAR
+        )
         train_loader, val_loader, test_loader = _make_image_loaders(
             fold_manifest=fold_manifest,
             dataset_cfg=dataset_cfg,
             training_cfg=training_cfg,
             root=root,
             batch_size=batch_size,
+            interpolation=interpolation,
         )
 
+        # drop_path (VLD-15) is plumbed to the timm ViT backbones; default 0.0
+        # leaves CNN backbones unaffected (they ignore it).
+        drop_path_rate = float(training_cfg.get("drop_path_rate", 0.0))
         model = MultiCNNFusionClassifier(
             backbone_names=backbone_names,
             unfreeze_blocks=unfreeze_blocks,
@@ -446,6 +517,7 @@ def main() -> None:
             num_classes=num_classes,
             mlp_hidden=mlp_hidden,
             dropout=dropout,
+            drop_path_rate=drop_path_rate,
         )
 
         opt_cfg = training_cfg.get("optimizer", {})
@@ -477,6 +549,9 @@ def main() -> None:
         cutmix_cfg = aug_cfg.get("cutmix", {})
         cutmix_prob: float = float(cutmix_cfg.get("prob", 0.0))
         cutmix_alpha: float = float(cutmix_cfg.get("alpha", 1.0))
+        mixup_cfg = aug_cfg.get("mixup", {})
+        mixup_prob: float = float(mixup_cfg.get("prob", 0.0))
+        mixup_alpha: float = float(mixup_cfg.get("alpha", 0.0))
 
     else:
         # ---- Frozen feature extraction path (original, untouched) ----
@@ -522,12 +597,17 @@ def main() -> None:
         ema = None
         cutmix_prob = 0.0
         cutmix_alpha = 0.0
+        mixup_prob = 0.0
+        mixup_alpha = 0.0
 
     # ------------------------------------------------------------------
     # Shared: scheduler, criterion, trainer, training loop
     # ------------------------------------------------------------------
 
     steps_per_epoch = max(1, len(train_loader))
+    # Intra-epoch progress heartbeat (~20 lines/epoch) for the fine-tune path
+    # only; frozen cached-feature epochs stay silent (interval 0).
+    progress_log_interval = max(1, steps_per_epoch // 20) if unfreeze_blocks > 0 else 0
     scheduler = build_scheduler(
         optimizer,
         training_cfg.get("scheduler", {}),
@@ -549,6 +629,9 @@ def main() -> None:
         ema=ema,
         cutmix_alpha=cutmix_alpha,
         cutmix_prob=cutmix_prob,
+        mixup_alpha=mixup_alpha,
+        mixup_prob=mixup_prob,
+        progress_log_interval=progress_log_interval,
     )
 
     logger.info("Starting training — %d epochs, patience %d", epochs, early_stopping_patience)

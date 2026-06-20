@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from src.data.augmentation import apply_cutmix
+from src.data.augmentation import apply_cutmix, apply_mixup
 from src.evaluation.metrics import compute_metrics
 from src.utils.checkpointing import save_checkpoint
 from src.utils.logging import get_logger, log_epoch
@@ -37,6 +37,9 @@ class Trainer:
         ema: "EMA | None" = None,
         cutmix_alpha: float = 0.0,
         cutmix_prob: float = 0.0,
+        mixup_alpha: float = 0.0,
+        mixup_prob: float = 0.0,
+        progress_log_interval: int = 0,
     ):
         self.model = model
         self.optimizer = optimizer
@@ -50,6 +53,11 @@ class Trainer:
         self.ema = ema
         self.cutmix_alpha = cutmix_alpha
         self.cutmix_prob = cutmix_prob
+        self.mixup_alpha = mixup_alpha
+        self.mixup_prob = mixup_prob
+        # When > 0, log a heartbeat every N steps inside an epoch (fine-tune
+        # path only; 0 keeps frozen/cached-feature epochs silent).
+        self.progress_log_interval = progress_log_interval
 
         self.scaler = torch.amp.GradScaler("cuda") if self.mixed_precision else None
 
@@ -127,30 +135,40 @@ class Trainer:
     def _compute_loss(
         self, features: torch.Tensor, labels: torch.Tensor
     ) -> torch.Tensor:
-        """Compute loss with optional CutMix mixing.
+        """Compute loss with optional MixUp / CutMix mixing.
 
-        When cutmix_prob > 0, CutMix is applied with probability cutmix_prob.
-        Mixed loss: lam * L(logits, label_a) + (1-lam) * L(logits, label_b).
-        Falls back to standard cross-entropy when CutMix is not triggered.
+        At most one mixing op fires per batch: MixUp is tried first with
+        probability ``mixup_prob``, then CutMix with probability
+        ``cutmix_prob`` (VLD-15 keeps CutMix off/small for endoscopy).  Either
+        way the mixed loss is
+        ``lam * L(logits, label_a) + (1-lam) * L(logits, label_b)``.  Falls
+        back to standard cross-entropy when neither triggers.
         """
-        if self.cutmix_prob > 0.0 and random.random() < self.cutmix_prob:
+        if self.mixup_prob > 0.0 and random.random() < self.mixup_prob:
+            features, label_a, label_b, lam = apply_mixup(
+                features, labels, alpha=self.mixup_alpha
+            )
+        elif self.cutmix_prob > 0.0 and random.random() < self.cutmix_prob:
             features, label_a, label_b, lam = apply_cutmix(
                 features, labels, alpha=self.cutmix_alpha
             )
+        else:
             logits = self.model(features)
-            return (
-                lam * self.criterion(logits, label_a)
-                + (1.0 - lam) * self.criterion(logits, label_b)
-            )
+            return self.criterion(logits, labels)
+
         logits = self.model(features)
-        return self.criterion(logits, labels)
+        return (
+            lam * self.criterion(logits, label_a)
+            + (1.0 - lam) * self.criterion(logits, label_b)
+        )
 
     # ------------------------------------------------------------------
     def _train_epoch(self, loader: DataLoader) -> float:
         self.model.train()
         total_loss = 0.0
+        n_batches = len(loader)
 
-        for features, labels in loader:
+        for step, (features, labels) in enumerate(loader, start=1):
             features = features.to(self.device)
             labels = labels.to(self.device)
 
@@ -171,6 +189,13 @@ class Trainer:
                 self.scheduler.step()
 
             total_loss += loss.item() * len(labels)
+
+            if self.progress_log_interval and (
+                step % self.progress_log_interval == 0 or step == n_batches
+            ):
+                logger.info(
+                    "    step %d/%d — loss: %.4f", step, n_batches, loss.item()
+                )
 
         return total_loss / len(loader.dataset)
 

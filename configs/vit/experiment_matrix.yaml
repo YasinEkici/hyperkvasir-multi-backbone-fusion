@@ -64,3 +64,38 @@ experiments:
     method: "configs/vit/method/triple_vit_swin_beit_weighted.yaml"
     training: "configs/vit/training/vit_frozen.yaml"
     fold: 0
+
+  # ── Sprint 3 fine-tune funnel (A100) ──────────────────────────────────
+  # Exactly the top-5 Sprint 2 frozen candidates, promoted to fold-0
+  # fine-tuning. Each reuses its Sprint 2 method config and points at the
+  # VLD-15 fine-tune recipe. No new backbones/fusion arms (VLD-07), fold 0
+  # only (VLD-12).
+  - id: "02_single_swin_t_finetune_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/single_swin_t.yaml"
+    training: "configs/vit/training/vit_finetune.yaml"
+    fold: 0
+
+  - id: "04_pair_vit_b_swin_t_concat_finetune_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/pair_vit_b_swin_t_concat.yaml"
+    training: "configs/vit/training/vit_finetune.yaml"
+    fold: 0
+
+  - id: "05_pair_vit_b_beit_b_concat_finetune_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/pair_vit_b_beit_b_concat.yaml"
+    training: "configs/vit/training/vit_finetune.yaml"
+    fold: 0
+
+  - id: "09_pair_swin_t_beit_b_weighted_finetune_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/pair_swin_t_beit_b_weighted.yaml"
+    training: "configs/vit/training/vit_finetune.yaml"
+    fold: 0
+
+  - id: "11_triple_weighted_finetune_official"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/triple_vit_swin_beit_weighted.yaml"
+    training: "configs/vit/training/vit_finetune.yaml"
+    fold: 0

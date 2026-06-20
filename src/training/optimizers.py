@@ -3,6 +3,8 @@
 import torch
 import torch.nn as nn
 
+from src.models.vit_backbones import ViTFeatureExtractor
+
 # ---------------------------------------------------------------------------
 # Per-backbone LLRD block specification
 # Verified against project_structure.md §2.1 and §2.2.
@@ -96,6 +98,27 @@ def build_adamw_with_llrd(
 
     for bb_name, bb_extractor in backbones_dict.items():
         name_lower = bb_name.lower()
+
+        # ViT/BEiT/Swin: per-layer LLRD comes from the extractor itself, which
+        # knows its transformer-layer structure (VLD-08/VLD-15).  The CNN
+        # _BACKBONE_BLOCKS path below does not apply to timm ViT models.
+        if isinstance(bb_extractor, ViTFeatureExtractor):
+            for group in bb_extractor.trainable_param_groups(
+                head_lr=head_lr, backbone_lr=backbone_lr, llrd_decay=llrd_decay
+            ):
+                params = [
+                    p for p in group["params"]
+                    if id(p) not in backbone_param_ids
+                ]
+                if params:
+                    backbone_param_ids.update(id(p) for p in params)
+                    backbone_groups.append({
+                        "params": params,
+                        "lr": group["lr"],
+                        "weight_decay": weight_decay,
+                    })
+            continue
+
         block_spec = _BACKBONE_BLOCKS.get(name_lower)
 
         if block_spec is None:

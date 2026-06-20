@@ -2,6 +2,7 @@
 
 RandAugment reference: Cubuk et al. 2020 (NeurIPS).
 CutMix reference:      Yun et al. 2019 (ICCV), equations (1)–(3).
+MixUp reference:       Zhang et al. 2018 (ICLR), equation (1).
 """
 
 from __future__ import annotations
@@ -79,5 +80,48 @@ def apply_cutmix(
 
     mixed = images.clone()
     mixed[:, :, y1:y2, x1:x2] = images[rand_index, :, y1:y2, x1:x2]
+
+    return mixed, labels, labels[rand_index], lam
+
+
+def apply_mixup(
+    images: Tensor,
+    labels: Tensor,
+    alpha: float,
+) -> tuple[Tensor, Tensor, Tensor, float]:
+    """Apply MixUp to a batch of images (Zhang et al. 2018, ICLR).
+
+    Verbatim from Zhang et al. 2018 §2 (ICLR), Equation 1 — vicinal
+    risk-minimization construction of virtual training examples:
+
+        x̃ = λ x_i + (1 − λ) x_j,   where x_i, x_j are raw input vectors
+        ỹ = λ y_i + (1 − λ) y_j,   where y_i, y_j are one-hot label encodings
+
+    with λ ∼ Beta(α, α), λ ∈ [0, 1].  (x_i, y_i) and (x_j, y_j) are two
+    examples drawn at random from the training data.
+
+    This function mixes the whole image (unlike CutMix's rectangular paste).
+    As with CutMix, the caller computes the mixed loss:
+        loss = lam * criterion(logits, label_a) + (1 - lam) * criterion(logits, label_b)
+
+    Args:
+        images: Float tensor of shape [B, C, H, W].
+        labels: Long tensor of shape [B].
+        alpha:  Beta distribution concentration parameter (config: mixup.alpha).
+
+    Returns:
+        mixed_images: Tensor [B, C, H, W] — λ·images + (1−λ)·shuffled.
+        label_a:      Tensor [B] — original labels (weight λ).
+        label_b:      Tensor [B] — labels from the shuffled pair (weight 1−λ).
+        lam:          float — mix coefficient λ ~ Beta(alpha, alpha).
+    """
+    B = images.shape[0]
+
+    # λ ~ Beta(alpha, alpha). alpha<=0 disables mixing (lam=1.0).
+    lam: float = float(np.random.beta(alpha, alpha)) if alpha > 0.0 else 1.0
+
+    rand_index = torch.randperm(B, device=images.device)
+
+    mixed = lam * images + (1.0 - lam) * images[rand_index]
 
     return mixed, labels, labels[rand_index], lam

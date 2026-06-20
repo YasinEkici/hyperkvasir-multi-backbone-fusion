@@ -101,7 +101,15 @@ class ViTFeatureExtractor(nn.Module):
         Load ImageNet-pretrained weights (default True).
     unfreeze_blocks : int
         Number of trailing blocks to unfreeze for fine-tuning.  Default 0
-        (fully frozen).  **Stored only in Sprint 1 — not exercised.**
+        (fully frozen).  For ViT/BEiT this is the count of trailing
+        ``model.blocks`` to unfreeze (VLD-08 uses 3 → ``blocks[9:]``); for
+        Swin it is ignored beyond ``> 0`` because VLD-08 locks Swin to its
+        final stage (``layers[3]``) only.
+    drop_path_rate : float
+        Stochastic-depth rate passed to timm at model creation (VLD-15 uses
+        ~0.05 for fine-tuning).  Default 0.0 leaves frozen / feature-cache
+        behaviour unchanged (and a fully frozen branch runs in ``.eval()``,
+        disabling drop_path regardless).
     """
 
     def __init__(
@@ -109,19 +117,23 @@ class ViTFeatureExtractor(nn.Module):
         name: str,
         pretrained: bool = True,
         unfreeze_blocks: int = 0,
+        drop_path_rate: float = 0.0,
     ) -> None:
         super().__init__()
 
         self.alias, self.timm_name = resolve_timm_name(name)
         self.pretrained = pretrained
         self.unfreeze_blocks = unfreeze_blocks
+        self.drop_path_rate = drop_path_rate
 
         # Build model — num_classes=0 removes the classification head and
-        # returns the native pooled pre-logits vector (VLD-04).
+        # returns the native pooled pre-logits vector (VLD-04).  drop_path_rate
+        # is plumbed through to timm here (VLD-15); default 0.0 is a no-op.
         self.model: nn.Module = timm.create_model(
             self.timm_name,
             pretrained=pretrained,
             num_classes=0,
+            drop_path_rate=drop_path_rate,
         )
 
         # ── Verify block counts (exec-plan Step 2) ────────────────────
@@ -204,17 +216,18 @@ class ViTFeatureExtractor(nn.Module):
         container = getattr(self.model, container_attr)
 
         if self.alias in ("vit_b", "beit_b"):
-            # Unfreeze last N blocks from model.blocks
+            # Unfreeze last N blocks from model.blocks (VLD-08: 3 → blocks[9:]).
             start_idx = max(0, len(container) - self.unfreeze_blocks)
             for block in container[start_idx:]:
                 for param in block.parameters():
                     param.requires_grad = True
         elif self.alias == "swin_t":
-            # Unfreeze last N stages (VLD-08: final stage = layers[3])
-            start_idx = max(0, len(container) - self.unfreeze_blocks)
-            for stage in container[start_idx:]:
-                for param in stage.parameters():
-                    param.requires_grad = True
+            # VLD-08: Swin fine-tunes the FINAL STAGE ONLY (layers[3]),
+            # regardless of the ViT-calibrated unfreeze_blocks count.  Using a
+            # stage *count* here would over-unfreeze (e.g. unfreeze_blocks=3
+            # would open the last 3 of 4 stages).
+            for param in container[-1].parameters():
+                param.requires_grad = True
 
         # Always unfreeze final norm + head (if they exist)
         for attr_name in ("norm", "head", "fc_norm"):
@@ -253,13 +266,56 @@ class ViTFeatureExtractor(nn.Module):
         backbone_lr: float,
         llrd_decay: float = 0.75,
     ) -> list[dict]:
-        """Return optimizer parameter groups for fine-tuning.
+        """Per-layer LLRD parameter groups for this backbone's unfrozen params.
 
-        Skeleton matching ``project_structure.md §6`` contract.  Full LLRD
-        implementation deferred to Sprint 3 / ``optimizers.py``.
+        Returns one group per transformer layer that contains trainable
+        parameters, with a layer-wise decayed learning rate (VLD-15):
+
+            lr(d) = backbone_lr * llrd_decay ** d
+
+        where ``d=0`` is nearest the output (the final norm) and ``d``
+        increases toward the stem.  Only ``requires_grad`` parameters are
+        included, so under VLD-08 this yields groups for ViT/BEiT
+        ``blocks[9:]`` + final norm, or Swin's final stage + final norm.
+
+        ``head_lr`` is accepted for interface symmetry
+        (``project_structure.md §6``) but not applied here: projection /
+        fusion / classifier ("head") parameters live outside the backbone and
+        are grouped by the caller at ``head_lr``.
+
+        Reference: Howard & Ruder (2018), ULMFiT §3.3 — discriminative
+        fine-tuning (LLRD).
         """
-        params = [p for p in self.parameters() if p.requires_grad]
-        if not params:
-            return []
-        # Simple single-group for now; per-layer LLRD in Sprint 3
-        return [{"params": params, "lr": backbone_lr}]
+        groups: list[dict] = []
+        seen: set[int] = set()
+
+        def _add(candidate_params, depth: int) -> None:
+            ps = [
+                p for p in candidate_params
+                if p.requires_grad and id(p) not in seen
+            ]
+            if ps:
+                seen.update(id(p) for p in ps)
+                groups.append(
+                    {"params": ps, "lr": backbone_lr * (llrd_decay ** depth)}
+                )
+
+        # depth 0 — final norm(s) nearest the output (head is Identity here
+        # because num_classes=0, but include it defensively).
+        head_like: list = []
+        for attr in ("norm", "fc_norm", "head"):
+            module = getattr(self.model, attr, None)
+            if isinstance(module, nn.Module):
+                head_like.extend(module.parameters())
+        _add(head_like, depth=0)
+
+        container = getattr(self.model, _BLOCK_CONTAINER[self.alias])
+        if self.alias in ("vit_b", "beit_b"):
+            n = len(container)
+            # deepest block (last) -> depth 1, increasing toward the stem.
+            for i in range(n - 1, -1, -1):
+                _add(container[i].parameters(), depth=n - i)
+        else:  # swin_t — final stage only (VLD-08)
+            _add(container[-1].parameters(), depth=1)
+
+        return groups

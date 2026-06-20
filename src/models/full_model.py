@@ -16,12 +16,19 @@ from src.models.vit_backbones import ViTFeatureExtractor, is_vit_backbone
 
 
 def _build_extractor(
-    name: str, pretrained: bool, unfreeze_blocks: int
+    name: str, pretrained: bool, unfreeze_blocks: int, drop_path_rate: float = 0.0
 ) -> BackboneFeatureExtractor | ViTFeatureExtractor:
-    """Dispatch to CNN or ViT feature extractor by backbone name."""
+    """Dispatch to CNN or ViT feature extractor by backbone name.
+
+    ``drop_path_rate`` (VLD-15) only applies to the timm ViT extractor; the
+    frozen CNN ``BackboneFeatureExtractor`` signature is left untouched.
+    """
     if is_vit_backbone(name):
         return ViTFeatureExtractor(
-            name=name, pretrained=pretrained, unfreeze_blocks=unfreeze_blocks
+            name=name,
+            pretrained=pretrained,
+            unfreeze_blocks=unfreeze_blocks,
+            drop_path_rate=drop_path_rate,
         )
     return BackboneFeatureExtractor(
         name=name, pretrained=pretrained, unfreeze_blocks=unfreeze_blocks
@@ -45,6 +52,7 @@ class MultiCNNFusionClassifier(nn.Module):
         num_classes: int,
         mlp_hidden: list[int] = [256],
         dropout: float = 0.3,
+        drop_path_rate: float = 0.0,
     ):
         super().__init__()
         self.backbone_names = backbone_names
@@ -54,13 +62,19 @@ class MultiCNNFusionClassifier(nn.Module):
         self.num_classes = num_classes
         self.mlp_hidden = mlp_hidden
         self.dropout = dropout
+        self.drop_path_rate = drop_path_rate
 
         # Initialize backbones — dispatch CNN vs ViT by name
         self.backbones = nn.ModuleDict()
         self.projections = nn.ModuleDict()
-        
+
         for name in backbone_names:
-            bb = _build_extractor(name=name, pretrained=True, unfreeze_blocks=unfreeze_blocks)
+            bb = _build_extractor(
+                name=name,
+                pretrained=True,
+                unfreeze_blocks=unfreeze_blocks,
+                drop_path_rate=drop_path_rate,
+            )
             self.backbones[name] = bb
             self.projections[name] = BranchProjection(in_dim=bb.feature_dim, out_dim=projection_dim)
 
