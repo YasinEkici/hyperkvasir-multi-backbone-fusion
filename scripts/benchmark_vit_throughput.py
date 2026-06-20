@@ -200,7 +200,7 @@ def main() -> None:
     results = []
     for m in modes:
         print(f"--- running mode: {m} ({MODES[m]['num_workers']} workers, "
-              f"{MODES[m]['amp']}, tf32={MODES[m]['tf32']}, "
+              f"{MODES[m]['amp_dtype']}, tf32={MODES[m]['tf32']}, "
               f"cudnn.benchmark={MODES[m]['cudnn_benchmark']}) ---", flush=True)
         r = _run_mode(m, exp, dataset_cfg, method_cfg, training_cfg, rows,
                       args.device, batch_size, args.warmup, args.max_steps)
