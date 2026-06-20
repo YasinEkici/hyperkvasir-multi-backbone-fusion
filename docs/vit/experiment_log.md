@@ -84,3 +84,41 @@ and trace to a resolved config (provenance gate, CNN D-09 reused).
   5. `05_pair_vit_b_beit_b_concat_frozen_official` - V+B, concat, macro-F1 `0.5613159913`.
 - No Sprint 3 fine-tuning was run.
 - Validation: `uv run pytest tests/` passed on 2026-06-19 (`217 passed`).
+
+## 2026-06-20 - Sprint 3 fine-tune funnel completion
+
+- Scope: fine-tuned the five locked Sprint 2 candidates on official fold 0 using
+  `configs/vit/training/vit_finetune.yaml`. No 5-fold CV, no Sprint 4 (VLD-12).
+- Commands run (Colab A100, via `colab/vit_finetune_runner.ipynb`):
+  - `uv run --no-sync python scripts/train.py --config configs/vit/experiment_matrix.yaml --experiment <id> --device cuda`
+    for: `02_single_swin_t_finetune_official`,
+    `04_pair_vit_b_swin_t_concat_finetune_official`,
+    `05_pair_vit_b_beit_b_concat_finetune_official`,
+    `09_pair_swin_t_beit_b_weighted_finetune_official`,
+    `11_triple_weighted_finetune_official`.
+  - Aggregation: `uv run python scripts/summarize_vit_finetune.py` (ranking +
+    frozen-vs-fine-tune deltas + top-4; tables under `results/vit/tables/`).
+- A100 / provenance: `train.py` enforces the A100 gate (VLD-11) before any
+  fine-tune; the five runs completed, implying A100. `metrics.json` records the
+  requested `device: cuda`. Dataset provenance was validated via per-class counts
+  vs the fold manifest + git SHA (full SHA-tree re-hash of the Drive source was
+  skipped due to Drive-FUSE throttling — see KI-VIT-001).
+- Training config / key hyperparameters (VLD-15, confirmed in saved `config.yaml`):
+  `unfreeze_blocks: 3`, AdamW, backbone LR `5e-5`, head LR `1e-3`, weight decay
+  `0.05`, LLRD `0.7`, cosine warmup `5`, drop_path `0.05`, label smoothing `0.1`,
+  MixUp `alpha 0.2 / prob 0.5`, CutMix off, EMA decay `0.9998` (start epoch 5),
+  mixed precision, batch size 32.
+- Run artifact status: all five `results/vit/runs/*_finetune_official/` contain
+  `metrics.json`, `config.yaml`, `predictions.npz`, `best.pt`; fold 0; finite
+  test metrics. Checkpoints range 107 MB (single Swin-T) to 765 MB (triple).
+- Fine-tune fold-0 test macro-F1 (source: `results/vit/runs/{id}/metrics.json`):
+  1. `02_single_swin_t_finetune_official` - 0.5918837684 (val 0.6493, stop ep 14).
+  2. `09_pair_swin_t_beit_b_weighted_finetune_official` - 0.5909205632 (val 0.6437, ep 14).
+  3. `11_triple_weighted_finetune_official` - 0.5850707743 (val 0.6386, ep 13).
+  4. `05_pair_vit_b_beit_b_concat_finetune_official` - 0.5783726429 (val 0.6050, ep 16).
+  5. `04_pair_vit_b_swin_t_concat_finetune_official` - 0.5727252344 (val 0.6313, ep 13).
+- Frozen-vs-fine-tune: all five improved test macro-F1 (Δ +0.0109 to +0.0262);
+  full per-metric deltas in `docs/vit/results_progress.md` Sprint 3 section.
+- Selected Sprint 4 top-4: `02`, `09`, `11`, `05`; dropped `04` (lowest
+  fine-tune macro-F1). Sprint 4 not run.
+- Validation: `uv run pytest tests/` passed on 2026-06-20 (`249 passed`).

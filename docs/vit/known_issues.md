@@ -16,3 +16,24 @@ These are risks to log here **if/when** they actually occur:
   torchvision's default bilinear would silently lower transfer fidelity.
 - **Catastrophic forgetting** — low backbone LR (2e-5–5e-5), last-3-block unfreeze,
   LLRD, EMA are the mitigations; watch fold-to-fold variance.
+
+## Observed issues
+
+### KI-VIT-001 — Google Drive FUSE throttles many-small-file staging (Sprint 3)
+
+- **Observed (2026-06-20):** staging the 10,662-image dataset to Colab by copying
+  loose files off the mounted Drive (FUSE) ran at ~1.5 files/s and stalled for
+  20–30 min — Drive throttles sustained small-file reads. The provenance gate hit
+  the same wall because it re-hashed the Drive source tree (`sha256_tree`).
+- **Workaround (implemented in `colab/vit_finetune_runner.ipynb`):** stage from a
+  single **archive** on Drive (`labeled-images.zip`/`.tar` with `labeled-images/`
+  at its root) — one sequential copy + local extract (minutes). The provenance
+  cell now hashes only the **local** staged tree and verifies per-class counts vs
+  the fold manifest + git SHA, recording the Drive archive as `approved_source`
+  (the Drive-vs-staged byte re-hash is redundant: the archive was verified to hold
+  10,662 jpg at build time and cell 5 re-asserts the staged count).
+- **Also observed:** the first artifact copy-back was partial (files split across
+  runs); re-fetching the complete run dirs from the Drive per-model backup
+  resolved it. All five runs verified complete afterward.
+- **Status:** resolved; no methodology impact. Dataset integrity and A100 gating
+  were preserved.
