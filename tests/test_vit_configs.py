@@ -71,6 +71,24 @@ def test_sprint3_finetune_rows() -> None:
         assert method["fusion_type"] in {"none", "concat", "weighted"}
 
 
+def test_vit_finetune_perf_config_sprint35() -> None:
+    """Sprint 3.5 throughput knobs are present and well-formed (VLD-17)."""
+    cfg = _read_yaml(ROOT / "configs" / "vit" / "training" / "vit_finetune.yaml")
+    dl = cfg["dataloader"]
+    assert int(dl["num_workers"]) > 0
+    assert dl["pin_memory"] is True
+    assert dl["persistent_workers"] is True
+    perf = cfg["performance"]
+    assert perf["amp_dtype"] in {"float16", "bfloat16"}
+    assert isinstance(perf["tf32"], bool)
+    repro = cfg["reproducibility"]
+    # autotuner enabled for speed; determinism relaxed (seeds still set).
+    assert repro["cudnn_benchmark"] is True
+    assert repro["deterministic"] is False
+    # batch size unchanged from Sprint 3 for result comparability.
+    assert int(cfg["batch_size"]) == 32
+
+
 def test_vit_frozen_training_config_is_frozen_mlp_only() -> None:
     cfg = _read_yaml(ROOT / "configs" / "vit" / "training" / "vit_frozen.yaml")
 

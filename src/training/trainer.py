@@ -40,6 +40,7 @@ class Trainer:
         mixup_alpha: float = 0.0,
         mixup_prob: float = 0.0,
         progress_log_interval: int = 0,
+        amp_dtype: str = "float16",
     ):
         self.model = model
         self.optimizer = optimizer
@@ -58,8 +59,15 @@ class Trainer:
         # When > 0, log a heartbeat every N steps inside an epoch (fine-tune
         # path only; 0 keeps frozen/cached-feature epochs silent).
         self.progress_log_interval = progress_log_interval
+        # AMP dtype: "float16" (default, matches Sprint 1-3) or "bfloat16"
+        # (A100, range-safe for ViT). GradScaler is only needed for float16;
+        # for bfloat16 it stays disabled (a no-op passthrough).
+        self.amp_dtype = getattr(torch, amp_dtype)
 
-        self.scaler = torch.amp.GradScaler("cuda") if self.mixed_precision else None
+        self.scaler = (
+            torch.amp.GradScaler("cuda", enabled=(self.amp_dtype == torch.float16))
+            if self.mixed_precision else None
+        )
 
         self.best_val_f1 = -1.0
         self.epochs_no_improve = 0
@@ -175,7 +183,7 @@ class Trainer:
             self.optimizer.zero_grad()
 
             if self.mixed_precision:
-                with torch.amp.autocast("cuda"):
+                with torch.amp.autocast("cuda", dtype=self.amp_dtype):
                     loss = self._compute_loss(features, labels)
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizer)

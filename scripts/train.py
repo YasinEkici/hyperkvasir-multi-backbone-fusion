@@ -357,6 +357,15 @@ def _make_image_loaders(
 
     use_sampler = dataset_cfg.get("class_imbalance_handling", "none") == "weighted_sampler"
 
+    # DataLoader performance knobs (Sprint 3.5). Defaults (0 workers, no pin)
+    # preserve the original behavior when a config omits the `dataloader` section,
+    # so frozen/CNN runs are unaffected.
+    dl_cfg = training_cfg.get("dataloader", {})
+    num_workers = int(dl_cfg.get("num_workers", 0))
+    pin_memory = bool(dl_cfg.get("pin_memory", False))
+    persistent = bool(dl_cfg.get("persistent_workers", False)) and num_workers > 0
+    prefetch = int(dl_cfg.get("prefetch_factor", 2))
+
     def _loader(rows_subset: list[dict], transform, weighted: bool) -> DataLoader:
         base = HyperKvasirImageDataset(rows_subset, transform=transform, project_root=root)
         ds = _PairDataset(base)
@@ -368,7 +377,12 @@ def _make_image_loaders(
             class_weights = 1.0 / class_counts.float().clamp(min=1)
             sample_weights = class_weights[labels_t]
             sampler = WeightedRandomSampler(sample_weights, len(sample_weights), replacement=True)
-        return DataLoader(ds, batch_size=batch_size, sampler=sampler, num_workers=0)
+        loader_kwargs = dict(batch_size=batch_size, sampler=sampler,
+                             num_workers=num_workers, pin_memory=pin_memory)
+        if num_workers > 0:
+            loader_kwargs["persistent_workers"] = persistent
+            loader_kwargs["prefetch_factor"] = prefetch
+        return DataLoader(ds, **loader_kwargs)
 
     train_loader = _loader(split_rows["train"], train_transform, weighted=use_sampler)
     val_loader = _loader(split_rows["val"], val_transform, weighted=False)
@@ -440,6 +454,14 @@ def main() -> None:
         deterministic=repro_cfg.get("deterministic", True),
         cudnn_benchmark=repro_cfg.get("cudnn_benchmark", False),
     )
+    # Performance knobs (Sprint 3.5); all default-off so frozen/CNN runs are
+    # unchanged. `amp_dtype` flows to the Trainer's autocast.
+    perf_cfg = training_cfg.get("performance", {})
+    amp_dtype = str(perf_cfg.get("amp_dtype", "float16"))
+    if perf_cfg.get("tf32", False) and device == "cuda":
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+        logger.info("TF32 matmul enabled (Sprint 3.5 perf)")
     logger.info(
         "Device: %s | Experiment: %s | Fold: %d | Seed: %d", device, args.experiment, fold, seed
     )
@@ -632,6 +654,7 @@ def main() -> None:
         mixup_alpha=mixup_alpha,
         mixup_prob=mixup_prob,
         progress_log_interval=progress_log_interval,
+        amp_dtype=amp_dtype,
     )
 
     logger.info("Starting training — %d epochs, patience %d", epochs, early_stopping_patience)

@@ -177,7 +177,11 @@ def main() -> None:
     p.add_argument("--warmup", type=int, default=10)
     p.add_argument("--max-steps", type=int, default=100)
     p.add_argument("--modes", choices=["current", "fast", "both"], default="both")
+    p.add_argument("--fast-workers", type=int, default=None,
+                   help="Override num_workers for the 'fast' mode (data-ceiling sweep)")
     args = p.parse_args()
+    if args.fast_workers is not None:
+        MODES["fast"]["num_workers"] = args.fast_workers
 
     matrix = yaml.safe_load((_ROOT / args.config).read_text())
     exp = {e["id"]: e for e in matrix["experiments"]}[args.experiment]

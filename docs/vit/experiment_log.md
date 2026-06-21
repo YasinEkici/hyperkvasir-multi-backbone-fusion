@@ -166,4 +166,32 @@ and trace to a resolved config (provenance gate, CNN D-09 reused).
   VLD note in Slice 2 when the knobs are actually adopted.
 - Validation: `uv run pytest tests/` passed on 2026-06-20 (`249 passed`).
 - TODO: run the official A100 benchmark (single + triple) to record the real
-  speedup before Slice 2 applies the knobs.
+  speedup before Slice 2 applies the knobs. (Done — A100 numbers above.)
+
+## 2026-06-21 - Sprint 3.5 Slice 2: apply throughput knobs (VLD-17)
+
+- Applied the verified knobs to the ViT fine-tune path — config-driven and
+  default-off, so the frozen ViT path and the CNN project are unchanged:
+  - `scripts/train.py` `_make_image_loaders` now reads a `dataloader` section
+    (num_workers / pin_memory / persistent_workers / prefetch_factor); default
+    0 workers preserves prior behavior.
+  - `scripts/train.py` enables TF32 (config flag) and passes `amp_dtype` from a
+    `performance` section to the Trainer.
+  - `src/training/trainer.py` autocast uses `amp_dtype` (float16 default /
+    bfloat16); GradScaler enabled only for float16.
+  - `configs/vit/training/vit_finetune.yaml`: `dataloader.num_workers=8` (+pin,
+    persistent, prefetch 4); `performance.amp_dtype=bfloat16`, `tf32=true`;
+    `reproducibility.cudnn_benchmark=true` / `deterministic=false`. batch_size
+    stays 32 (result comparability).
+  - `scripts/benchmark_vit_throughput.py`: added `--fast-workers` for sweeps.
+- Decision logged: VLD-17 in `docs/vit/decisions.md` (throughput config +
+  reproducibility trade-off). `005-vit-foundation.md` checked — no change needed.
+- Wiring verified locally: `vit_finetune.yaml` -> train loader num_workers=8,
+  pin_memory=True, persistent_workers=True, prefetch_factor=4, batch_size=32;
+  `vit_frozen.yaml` has no dataloader/performance section (frozen unchanged).
+- Tests: `tests/test_trainer_amp.py` + perf-config assert in
+  `tests/test_vit_configs.py`. `uv run pytest tests/` passed (`253 passed`).
+- Sprint 3 fold-0 results are unchanged (this only affects future fine-tune runs).
+- TODO (Slice 3, A100): correctness re-run of one fold-0 candidate with the tuned
+  config -> confirm test macro-F1 within run-to-run noise of Sprint 3; optional
+  `--fast-workers` 12/16 sweep to push past the ~310 img/s data ceiling.
