@@ -147,6 +147,19 @@ and trace to a resolved config (provenance gate, CNN D-09 reused).
     ~23 s/epoch (triple) of compute, i.e. full fold-0 fine-tunes in minutes — so
     Sprint 4 (top-4 x 5 folds) is feasible on the local 5080 at zero A100 cost.
   - First local run surfaced and fixed a print-time `KeyError` in the tool.
+- Official measurement (**Colab A100-SXM4-40GB**; warmup 10, 100/60 timed steps):
+  - `02_single_swin_t_finetune_official` (bs 32): current 57.0 img/s
+    (561 ms/step) -> fast 300.8 img/s (106 ms/step) = **5.28x**; peak 0.7 GB.
+  - `11_triple_weighted_finetune_official` (bs 32): current 54.0 img/s
+    (593 ms/step) -> fast 319.1 img/s (100 ms/step) = **5.91x**; peak 2.8 GB.
+  - Key finding 1: in `current` mode the A100 (~55 img/s) is no faster than the
+    laptop 5080 (~65 img/s) — `num_workers=0` fully starves it (paying A100 for
+    laptop throughput). The fast knobs recover 5.3-5.9x.
+  - Key finding 2: in `fast` mode single (~301) ~= triple (~319) img/s, i.e. the
+    A100 is still CPU/data-pipeline bound, not compute bound. Peak memory
+    0.7/2.8 GB of 40 GB => large headroom. Slice 2 should raise `num_workers`
+    (Colab A100 high-RAM has more vCPUs) and batch size, then re-benchmark to
+    find the data ceiling.
 - No project decision changed yet (knobs are only measured, not applied), so
   `decisions.md` / `005-vit-foundation.md` are unchanged. The reproducibility
   trade-off (cuDNN benchmark / non-determinism / TF32 / bf16) will be logged as a
