@@ -195,3 +195,30 @@ and trace to a resolved config (provenance gate, CNN D-09 reused).
 - TODO (Slice 3, A100): correctness re-run of one fold-0 candidate with the tuned
   config -> confirm test macro-F1 within run-to-run noise of Sprint 3; optional
   `--fast-workers` 12/16 sweep to push past the ~310 img/s data ceiling.
+
+## 2026-06-21 - Sprint 3.5 Slice 3: correctness check (tuned config)
+
+- Re-ran `02_single_swin_t_finetune_official` with the tuned config on the local
+  RTX 5080 (bf16 + 8 workers + TF32 + cuDNN autotuner), `--seed 123
+  --allow-non-a100`, so it writes to `..._seed123/` (the Sprint 3 seed-42 run is
+  untouched).
+- Training healthy: loss decreased normally, best val macro-F1 0.6344 (epoch 4),
+  early-stopped epoch 12 — comparable to Sprint 3's seed-42 run (best val 0.6493).
+- Windows-only crash in the post-training test eval (KI-VIT-002): the test loader
+  spawned 8 more workers on top of the train+val persistent workers (~24
+  torch-loading processes) -> `WinError 1455` (paging file too small). Not a logic
+  bug; Colab/Linux (fork) is unaffected. Test metrics recovered by evaluating the
+  saved `best.pt` with `num_workers=0`.
+- Correctness comparison (test macro-F1):
+  - tuned (5080, bf16, seed 123): 0.5789963898 (acc 0.8680490104).
+  - Sprint 3 (A100, fp16, seed 42): 0.5918837684 (acc 0.8770028275).
+  - delta -0.0129: within plausible run-to-run noise but **conservative / n=1** —
+    conflates seed (123 vs 42) + hardware (5080 vs A100) + dtype (bf16 vs fp16) +
+    non-determinism. The lower test tracks the lower best-val (0.6344 vs 0.6493),
+    i.e. a less-lucky seed, not a config degradation. Training dynamics healthy.
+- Conclusion: the tuned config trains correctly and lands within the expected seed
+  band; acceptable to lock for Sprint 4 (5-fold CV averages seed noise). Optional
+  report-grade rigor: one A100 same-seed (42) tuned run vs Sprint 3 to remove the
+  hardware/seed/dtype confounds.
+- No code change in this slice. `uv run pytest tests/` passed (`253 passed`).
+- `..._seed123/` artifacts are gitignored (local correctness evidence only).

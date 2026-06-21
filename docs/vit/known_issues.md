@@ -37,3 +37,22 @@ These are risks to log here **if/when** they actually occur:
   resolved it. All five runs verified complete afterward.
 - **Status:** resolved; no methodology impact. Dataset integrity and A100 gating
   were preserved.
+
+### KI-VIT-002 — Windows: high DataLoader num_workers crash at eval (Sprint 3.5)
+
+- **Observed (2026-06-21):** running the tuned fine-tune config
+  (`dataloader.num_workers=8`, `persistent_workers=true`) on the local RTX 5080
+  (Windows, multiprocessing `spawn`) trained fine for all epochs, then crashed in
+  the post-training **test** evaluation with `OSError [WinError 1455] paging file
+  too small` while loading `cublas64_*.dll` in a freshly spawned worker. Cause:
+  train + val persistent workers (8 each) plus the test loader's 8 new workers =>
+  ~24 processes each re-importing torch/CUDA under Windows `spawn` -> commit-memory
+  limit.
+- **Impact:** Windows local runs only. The Sprint 4 target (Colab A100, Linux
+  `fork`) is unaffected. Training itself completed; only the final test eval +
+  `metrics.json` write were skipped (recoverable by evaluating `best.pt`).
+- **Mitigations (Windows local):** lower `dataloader.num_workers` (e.g. 2) and/or
+  set `persistent_workers: false`, or raise the Windows paging-file size. No code
+  change needed for the A100/Linux path.
+- **Status:** documented; not a code-logic bug. Optional future hardening: cap
+  num_workers when `os.name == 'nt'`.
