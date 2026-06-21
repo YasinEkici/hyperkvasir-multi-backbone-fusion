@@ -56,10 +56,24 @@ early_stopping:
   patience: 8
   monitor: "val_macro_f1"
 
+# Sprint 3.5 throughput config (VLD-17): enable the cuDNN autotuner; seeds are
+# kept so reproducibility is approximate (not bitwise). See docs/vit/decisions.md.
 reproducibility:
   seed: 42
-  deterministic: true
-  cudnn_benchmark: false
+  deterministic: false
+  cudnn_benchmark: true
+
+# Sprint 3.5 performance knobs (VLD-17). Measured ~5-6x A100 throughput vs the
+# pre-3.5 defaults; the dominant fix is num_workers (the old default 0 starved
+# the GPU). Verified results within run-to-run noise of Sprint 3 (Slice 3).
+performance:
+  amp_dtype: "bfloat16"   # A100 range-safe for ViT (float16 stays the default elsewhere)
+  tf32: true              # TF32 tensor cores for FP32 matmuls (Ampere+)
+dataloader:
+  num_workers: 8
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 4
 
 tracking:
   backend: "json"

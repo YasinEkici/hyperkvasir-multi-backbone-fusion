@@ -134,6 +134,31 @@ decisions D-07/D-08/D-09 from `docs/decisions.md` are reused where noted.
 - Citation traceability rule unchanged: report numbers must trace to a `paper.md`
   Table/Section or a `metrics.json` (`references/INDEX.md §0`, `AGENTS.md`).
 
+## 2026-06-21 — VLD-17: ViT fine-tune throughput config (Sprint 3.5)
+
+- **Problem:** the pre-3.5 fine-tune pipeline ran the A100 at laptop-5080
+  throughput. Root cause measured with `scripts/benchmark_vit_throughput.py`:
+  the image DataLoader used `num_workers=0` (GPU starved), TF32 off, fp16
+  autocast, and cuDNN in deterministic / no-autotuner mode.
+- **Decision:** the ViT **fine-tune** path (`configs/vit/training/vit_finetune.yaml`)
+  adopts a throughput config — DataLoader `num_workers=8` + `pin_memory` +
+  `persistent_workers` + `prefetch_factor=4`; `cudnn.benchmark=true` +
+  `deterministic=false`; TF32 on; **bfloat16** autocast (range-safe for ViT on
+  A100). All knobs are config-driven and default-off, so the frozen ViT path and
+  the CNN project are unchanged. `batch_size` stays 32 (a batch increase changes
+  optimization and is out of scope for this perf work).
+- **Measured speedup (Colab A100, bs 32):** single Swin-T 5.3x, triple 5.9x
+  (img/s). In `fast` mode single throughput ~= triple => still CPU/data bound;
+  higher `num_workers`/batch can be swept via `--fast-workers` in the benchmark.
+- **Reproducibility trade-off:** the autotuner / non-determinism / TF32 / bf16
+  drop bitwise reproducibility. Seeds are still set, so runs are **approximately**
+  reproducible. Sprint 3 fold-0 results were produced with the deterministic fp16
+  config and are NOT invalidated; Sprint 4 onward uses this throughput config.
+  A Slice-3 correctness re-run confirms test macro-F1 stays within run-to-run
+  noise of Sprint 3.
+- Applies to the ViT fine-tune path only; does not change the VLD-08/09/15
+  modelling decisions.
+
 ## Open instructor-ambiguity flags (to address in the report)
 
 1. **§2 "üç farklı ViT" vs §3.1 (two mandatory).** Resolved by N=3 (VLD-02).

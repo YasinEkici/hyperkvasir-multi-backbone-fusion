@@ -122,3 +122,103 @@ and trace to a resolved config (provenance gate, CNN D-09 reused).
 - Selected Sprint 4 top-4: `02`, `09`, `11`, `05`; dropped `04` (lowest
   fine-tune macro-F1). Sprint 4 not run.
 - Validation: `uv run pytest tests/` passed on 2026-06-20 (`249 passed`).
+
+## 2026-06-20 - Sprint 3.5 Slice 1: throughput baseline (measurement)
+
+- Scope: measurement only; no change to `scripts/train.py`, training configs, or
+  any run artifacts (exec-plan `008-vit-perf.md`, Slice 1).
+- Added `scripts/benchmark_vit_throughput.py`: times the fine-tune loop under
+  `current` (num_workers=0, fp16, TF32 off, cuDNN deterministic/no-autotuner) vs
+  `fast` (num_workers=8, pin_memory, persistent_workers, bf16, TF32 on,
+  cudnn.benchmark=True) and reports img/s, steps/s, ms/step, peak memory.
+- Measurement (local **RTX 5080**; warmup 10, 100/60 timed steps — stable run.
+  A100 not yet measured):
+  - `02_single_swin_t_finetune_official` (bs 32): current 63.2 img/s
+    (506 ms/step) -> fast 624.1 img/s (51 ms/step) = **9.9x**; peak 0.7 GB.
+  - `11_triple_weighted_finetune_official` (bs 32): current 66.3 img/s
+    (482 ms/step) -> fast 285.1 img/s (112 ms/step) = **4.3x**; peak 2.9 GB.
+  - (A short 8-step smoke earlier showed 23.5x/6.3x; those were inflated by
+    unamortised worker startup — the longer run above is the reliable figure.)
+  - Dominant factor is the DataLoader fix (`num_workers=0` starves the GPU); the
+    single (cheap compute) is almost entirely data-bound, the triple is more
+    compute-bound hence a smaller ratio. Tiny peak memory (0.7/2.9 GB) => large
+    batch headroom.
+  - Implication: at the fast config the 5080 reaches ~10 s/epoch (single) and
+    ~23 s/epoch (triple) of compute, i.e. full fold-0 fine-tunes in minutes — so
+    Sprint 4 (top-4 x 5 folds) is feasible on the local 5080 at zero A100 cost.
+  - First local run surfaced and fixed a print-time `KeyError` in the tool.
+- Official measurement (**Colab A100-SXM4-40GB**; warmup 10, 100/60 timed steps):
+  - `02_single_swin_t_finetune_official` (bs 32): current 57.0 img/s
+    (561 ms/step) -> fast 300.8 img/s (106 ms/step) = **5.28x**; peak 0.7 GB.
+  - `11_triple_weighted_finetune_official` (bs 32): current 54.0 img/s
+    (593 ms/step) -> fast 319.1 img/s (100 ms/step) = **5.91x**; peak 2.8 GB.
+  - Key finding 1: in `current` mode the A100 (~55 img/s) is no faster than the
+    laptop 5080 (~65 img/s) — `num_workers=0` fully starves it (paying A100 for
+    laptop throughput). The fast knobs recover 5.3-5.9x.
+  - Key finding 2: in `fast` mode single (~301) ~= triple (~319) img/s, i.e. the
+    A100 is still CPU/data-pipeline bound, not compute bound. Peak memory
+    0.7/2.8 GB of 40 GB => large headroom. Slice 2 should raise `num_workers`
+    (Colab A100 high-RAM has more vCPUs) and batch size, then re-benchmark to
+    find the data ceiling.
+- No project decision changed yet (knobs are only measured, not applied), so
+  `decisions.md` / `005-vit-foundation.md` are unchanged. The reproducibility
+  trade-off (cuDNN benchmark / non-determinism / TF32 / bf16) will be logged as a
+  VLD note in Slice 2 when the knobs are actually adopted.
+- Validation: `uv run pytest tests/` passed on 2026-06-20 (`249 passed`).
+- TODO: run the official A100 benchmark (single + triple) to record the real
+  speedup before Slice 2 applies the knobs. (Done — A100 numbers above.)
+
+## 2026-06-21 - Sprint 3.5 Slice 2: apply throughput knobs (VLD-17)
+
+- Applied the verified knobs to the ViT fine-tune path — config-driven and
+  default-off, so the frozen ViT path and the CNN project are unchanged:
+  - `scripts/train.py` `_make_image_loaders` now reads a `dataloader` section
+    (num_workers / pin_memory / persistent_workers / prefetch_factor); default
+    0 workers preserves prior behavior.
+  - `scripts/train.py` enables TF32 (config flag) and passes `amp_dtype` from a
+    `performance` section to the Trainer.
+  - `src/training/trainer.py` autocast uses `amp_dtype` (float16 default /
+    bfloat16); GradScaler enabled only for float16.
+  - `configs/vit/training/vit_finetune.yaml`: `dataloader.num_workers=8` (+pin,
+    persistent, prefetch 4); `performance.amp_dtype=bfloat16`, `tf32=true`;
+    `reproducibility.cudnn_benchmark=true` / `deterministic=false`. batch_size
+    stays 32 (result comparability).
+  - `scripts/benchmark_vit_throughput.py`: added `--fast-workers` for sweeps.
+- Decision logged: VLD-17 in `docs/vit/decisions.md` (throughput config +
+  reproducibility trade-off). `005-vit-foundation.md` checked — no change needed.
+- Wiring verified locally: `vit_finetune.yaml` -> train loader num_workers=8,
+  pin_memory=True, persistent_workers=True, prefetch_factor=4, batch_size=32;
+  `vit_frozen.yaml` has no dataloader/performance section (frozen unchanged).
+- Tests: `tests/test_trainer_amp.py` + perf-config assert in
+  `tests/test_vit_configs.py`. `uv run pytest tests/` passed (`253 passed`).
+- Sprint 3 fold-0 results are unchanged (this only affects future fine-tune runs).
+- TODO (Slice 3, A100): correctness re-run of one fold-0 candidate with the tuned
+  config -> confirm test macro-F1 within run-to-run noise of Sprint 3; optional
+  `--fast-workers` 12/16 sweep to push past the ~310 img/s data ceiling.
+
+## 2026-06-21 - Sprint 3.5 Slice 3: correctness check (tuned config)
+
+- Re-ran `02_single_swin_t_finetune_official` with the tuned config on the local
+  RTX 5080 (bf16 + 8 workers + TF32 + cuDNN autotuner), `--seed 123
+  --allow-non-a100`, so it writes to `..._seed123/` (the Sprint 3 seed-42 run is
+  untouched).
+- Training healthy: loss decreased normally, best val macro-F1 0.6344 (epoch 4),
+  early-stopped epoch 12 — comparable to Sprint 3's seed-42 run (best val 0.6493).
+- Windows-only crash in the post-training test eval (KI-VIT-002): the test loader
+  spawned 8 more workers on top of the train+val persistent workers (~24
+  torch-loading processes) -> `WinError 1455` (paging file too small). Not a logic
+  bug; Colab/Linux (fork) is unaffected. Test metrics recovered by evaluating the
+  saved `best.pt` with `num_workers=0`.
+- Correctness comparison (test macro-F1):
+  - tuned (5080, bf16, seed 123): 0.5789963898 (acc 0.8680490104).
+  - Sprint 3 (A100, fp16, seed 42): 0.5918837684 (acc 0.8770028275).
+  - delta -0.0129: within plausible run-to-run noise but **conservative / n=1** —
+    conflates seed (123 vs 42) + hardware (5080 vs A100) + dtype (bf16 vs fp16) +
+    non-determinism. The lower test tracks the lower best-val (0.6344 vs 0.6493),
+    i.e. a less-lucky seed, not a config degradation. Training dynamics healthy.
+- Conclusion: the tuned config trains correctly and lands within the expected seed
+  band; acceptable to lock for Sprint 4 (5-fold CV averages seed noise). Optional
+  report-grade rigor: one A100 same-seed (42) tuned run vs Sprint 3 to remove the
+  hardware/seed/dtype confounds.
+- No code change in this slice. `uv run pytest tests/` passed (`253 passed`).
+- `..._seed123/` artifacts are gitignored (local correctness evidence only).

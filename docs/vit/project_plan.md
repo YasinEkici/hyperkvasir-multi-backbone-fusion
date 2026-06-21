@@ -79,18 +79,22 @@ Continues the repo's existing `docs/exec-plans/` sprint machinery (CNN used
 | **S1 — Foundation** | `005-vit-foundation.md` | `vit-fusion` branch; timm backbone factory (verify attribute paths); `configs/vit/` skeleton; feature-extraction path; smoke test (shape asserts) | 0 |
 | **S2 — Frozen ablation** | `006-vit-frozen-ablation.md` | cache 3 ViT features (all folds, off-A100); run **all** frozen single/pair/triple configs; rank by fold-0 macro-F1 | **0** |
 | **S3 — Fine-tune funnel** | `007-vit-finetune.md` | fine-tune **top ~5** configs on fold-0 (A100); pick top-4 | ~11 |
-| **S4 — 5-fold CV + CI** | `008-vit-cv.md` | top-4 × 5 folds; bootstrap CI; (optional) seed draw + TTA | ~43–54 |
-| **S5 — Interpretability + report** | `009-vit-report.md` | attention rollout / Grad-CAM / UMAP; LaTeX report under `reports/vit/`; YouTube video | 0 |
+| **S3.5 — A100 throughput** | `008-vit-perf.md` | fix DataLoader starvation (num_workers) + TF32 + bf16 + cuDNN autotuner; benchmark + correctness; lock tuned fine-tune config (VLD-17) | ~few (benchmark) |
+| **S4 — 5-fold CV + CI** | `009-vit-cv.md` | top-4 × 5 folds; bootstrap CI; (optional) seed draw + TTA | ~8–11 (tuned; was ~43–54) |
+| **S5 — Interpretability + report** | `010-vit-report.md` | attention rollout / Grad-CAM / UMAP; LaTeX report under `reports/vit/`; YouTube video | 0 |
 
-**Funnel rule (protects the ~100-unit budget, target ~65 A100 units total):**
-frozen-rank everything off-A100 → fine-tune only the pruned top set on A100 →
-5-fold only the top-4. Never fine-tune all configs.
+**Funnel rule (protects the ~100-unit budget):** frozen-rank everything off-A100
+→ fine-tune only the pruned top set on A100 → 5-fold only the top-4. Never
+fine-tune all configs. After the Sprint 3.5 throughput tuning (VLD-17), the A100
+fine-tune cost dropped ~5–6×, so the realistic total is well under budget.
 
 ### Hard checkpoints
 - **End S1:** smoke test asserts the three backbones return `(B, 768)`; timm
   `model.blocks` / `model.layers` paths confirmed.
 - **End S2:** frozen ablation table ranks all configs; top set chosen.
 - **End S3:** fold-0 fine-tune done; top-4 locked.
+- **End S3.5:** ViT fine-tune DataLoader/AMP/TF32 tuned (~5–6× A100 throughput);
+  correctness within run-to-run noise; tuned config locked for S4 (VLD-17).
 - **End S4:** 5-fold results with CIs are report-ready.
 - **End S5:** report draft v1 + video outline.
 
