@@ -14,7 +14,8 @@ DataLoader uses `num_workers=0`, TF32 is off, and cuDNN runs in deterministic /
 no-autotuner mode (`scripts/train.py`, `src/utils/reproducibility.py`).
 
 Numbering note: this is an inserted Sprint 3.5; Sprint 4 (5-fold CV) becomes
-`009-vit-cv.md`. Update `docs/vit/project_plan.md §3` if/when this is confirmed.
+`009-vit-cv.md` and the report `010-vit-report.md` (`docs/vit/project_plan.md §3`
+updated in Slice 4).
 
 ## 2. Inputs
 
