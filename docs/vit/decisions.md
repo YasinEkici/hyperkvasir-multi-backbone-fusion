@@ -159,6 +159,29 @@ decisions D-07/D-08/D-09 from `docs/decisions.md` are reused where noted.
 - Applies to the ViT fine-tune path only; does not change the VLD-08/09/15
   modelling decisions.
 
+## 2026-06-23 — VLD-18: Final ViT model selection + CV/CI methodology (Sprint 4)
+
+- **Final selected ViT fusion model = `11_triple_weighted`** — ViT-B/16 + Swin-T +
+  BEiT-B/16, **weighted** fusion of the 512-d branch projections, MLP head,
+  fine-tuned last blocks with the tuned recipe (VLD-15 + VLD-17). Chosen as best
+  by 5-fold mean macro-F1.
+- **CV/CI methodology (locked):** official 5-fold (folds 0–4); per-fold + mean ±
+  std for Acc / macro-F1 / macro-P / macro-R; **bootstrap 95% CI on macro-F1**
+  over the concatenated out-of-fold test predictions (folds verified disjoint and
+  covering the dataset once → leakage-free, VLD-13; never average fold models).
+  Headline metric = macro-F1 (VLD-10).
+- **Result:** 5-fold macro-F1 **0.6094 ± 0.0254** (pooled OOF 0.6119
+  [0.5930, 0.6295]); with the 3-seed ensemble **0.6157 [0.5994, 0.6321]**.
+- **Leakage-free extras (VLD-13):** TTA (orig+hflip, within-fold) gave **no gain**
+  (−0.0011); the top-1 **seed ensemble** (seeds 42/123/2024, within-fold softmax
+  average) gave **+0.0041**. Both reported with CI.
+- **Honest caveats (for the report §5.5):** (a) the top configs' CIs overlap
+  (triple [0.593, 0.630] vs single Swin-T [0.581, 0.615]) — best by mean, not a
+  clean statistical separation; (b) the CV used the throughput config (VLD-17,
+  approximate reproducibility), so the numbers are not bitwise-reproducible.
+- Supersedes the Sprint 3 fold-0 ranking for model selection; does not change any
+  earlier VLD modelling decision.
+
 ## Open instructor-ambiguity flags (to address in the report)
 
 1. **§2 "üç farklı ViT" vs §3.1 (two mandatory).** Resolved by N=3 (VLD-02).

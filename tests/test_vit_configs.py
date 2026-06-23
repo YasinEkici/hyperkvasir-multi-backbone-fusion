@@ -18,8 +18,8 @@ def test_vit_experiment_matrix_configs_parse() -> None:
     matrix = _read_yaml(matrix_path)
     experiments = matrix["experiments"]
 
-    # 11 Sprint 2 frozen rows + 5 Sprint 3 fine-tune rows.
-    assert len(experiments) == 16
+    # 11 Sprint 2 frozen + 5 Sprint 3 fine-tune + 4 Sprint 4 CV rows.
+    assert len(experiments) == 20
     assert experiments[0]["id"] == "01_single_vit_b_frozen_official"
 
     expected_fusions = {"none", "concat", "weighted"}
@@ -66,6 +66,30 @@ def test_sprint3_finetune_rows() -> None:
         assert row["method"] == f"configs/vit/method/{method_stem}.yaml"
         assert row["fold"] == 0
         # No GMU or non-MLP arm sneaks in (VLD-06/VLD-07).
+        method = _read_yaml(ROOT / row["method"])
+        assert method["classifier"] == "mlp"
+        assert method["fusion_type"] in {"none", "concat", "weighted"}
+
+
+def test_sprint4_cv_rows() -> None:
+    """Exactly the four Sprint 4 CV candidates (top-4), tuned config, fold 0."""
+    matrix = _read_yaml(ROOT / "configs" / "vit" / "experiment_matrix.yaml")
+    experiments = {e["id"]: e for e in matrix["experiments"]}
+    expected = {
+        "02_single_swin_t_cv": "single_swin_t",
+        "09_pair_swin_t_beit_b_weighted_cv": "pair_swin_t_beit_b_weighted",
+        "11_triple_weighted_cv": "triple_vit_swin_beit_weighted",
+        "05_pair_vit_b_beit_b_concat_cv": "pair_vit_b_beit_b_concat",
+    }
+    cv_ids = {e["id"] for e in matrix["experiments"] if e["id"].endswith("_cv")}
+    assert cv_ids == set(expected), "exactly the four top-4 CV rows"
+    # the dropped Sprint 3 config 04 must not appear as a CV row
+    assert not any("04_pair_vit_b_swin_t_concat" in i for i in cv_ids)
+    for exp_id, method_stem in expected.items():
+        row = experiments[exp_id]
+        assert row["training"] == "configs/vit/training/vit_finetune.yaml"
+        assert row["method"] == f"configs/vit/method/{method_stem}.yaml"
+        assert row["fold"] == 0
         method = _read_yaml(ROOT / row["method"])
         assert method["classifier"] == "mlp"
         assert method["fusion_type"] in {"none", "concat", "weighted"}

@@ -99,3 +99,31 @@ experiments:
     method: "configs/vit/method/triple_vit_swin_beit_weighted.yaml"
     training: "configs/vit/training/vit_finetune.yaml"
     fold: 0
+
+  # ── Sprint 4 5-fold CV (009-vit-cv.md) ────────────────────────────────
+  # The Sprint 3 top-4, re-run with the tuned config (VLD-17) across folds 0-4
+  # via `--fold`. NEW `_cv` ids so tuned fold-0 runs do NOT overwrite the Sprint 3
+  # `_finetune_official` artifacts. Dropped `04_pair_vit_b_swin_t_concat` excluded.
+  - id: "02_single_swin_t_cv"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/single_swin_t.yaml"
+    training: "configs/vit/training/vit_finetune.yaml"
+    fold: 0
+
+  - id: "09_pair_swin_t_beit_b_weighted_cv"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/pair_swin_t_beit_b_weighted.yaml"
+    training: "configs/vit/training/vit_finetune.yaml"
+    fold: 0
+
+  - id: "11_triple_weighted_cv"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/triple_vit_swin_beit_weighted.yaml"
+    training: "configs/vit/training/vit_finetune.yaml"
+    fold: 0
+
+  - id: "05_pair_vit_b_beit_b_concat_cv"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/pair_vit_b_beit_b_concat.yaml"
+    training: "configs/vit/training/vit_finetune.yaml"
+    fold: 0
