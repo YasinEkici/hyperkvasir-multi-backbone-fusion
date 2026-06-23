@@ -182,6 +182,27 @@ decisions D-07/D-08/D-09 from `docs/decisions.md` are reused where noted.
 - Supersedes the Sprint 3 fold-0 ranking for model selection; does not change any
   earlier VLD modelling decision.
 
+## 2026-06-23 — VLD-19: GMU gate fidelity (element-wise, Sprint 4.5)
+
+- **Problem:** `src/models/fusion/gmu.py` used a **per-branch scalar softmax gate**
+  (z ∈ ℝ^N), but Arevalo et al. 2017 §3.1 specify an **element-wise** gate
+  ("multiplicative gates that assign importance to various features
+  simultaneously"): z has the dimensionality of the branch activations,
+  `h = z ⊙ h_v + (1−z) ⊙ h_t`. The scalar version loses the per-feature gating
+  (it behaves like an input-gated weighted sum, close to our `weighted` fusion).
+- **Decision:** add a config-driven `gate_mode`:
+  - `"elementwise"` (faithful): `z = softmax_over_branches(reshape(W_z·concat(x),
+    (N,D)))` → (B,N,D); `h = Σ_i z_i ⊙ h_i`. For N=2 this reduces **exactly** to
+    the paper's tied bimodal element-wise gate.
+  - `"scalar"` (default): the legacy per-branch gate, kept so the CNN project's
+    `15_triple_gmu` run and all existing configs are byte-for-byte unchanged.
+- **ViT GMU (Sprint 4.5) uses `gate_mode: elementwise`** (method `fusion_kwargs`,
+  wired through `full_model.py` / `FrozenHeadModel`), so the "GMU (Arevalo et al.
+  2017)" citation is faithful. The CNN GMU number was produced with the scalar
+  gate — documented here; the frozen CNN artifacts are not changed (PLD-/tag
+  `cnn-submission`).
+- Does not change any other VLD; concat/weighted fusion untouched.
+
 ## Open instructor-ambiguity flags (to address in the report)
 
 1. **§2 "üç farklı ViT" vs §3.1 (two mandatory).** Resolved by N=3 (VLD-02).

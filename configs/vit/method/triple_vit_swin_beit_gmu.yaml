@@ -1,0 +1,8 @@
+backbone_names: ["vit_b", "swin_t", "beit_b"]
+projection_dim: 512
+fusion_type: "gmu"
+fusion_kwargs:
+  gate_mode: "elementwise"   # faithful Arevalo 2017 §3.1 gate (VLD-19)
+classifier: "mlp"
+mlp_hidden: [256]
+dropout: 0.3
