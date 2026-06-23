@@ -222,3 +222,39 @@ and trace to a resolved config (provenance gate, CNN D-09 reused).
   hardware/seed/dtype confounds.
 - No code change in this slice. `uv run pytest tests/` passed (`253 passed`).
 - `..._seed123/` artifacts are gitignored (local correctness evidence only).
+
+## 2026-06-23 - Sprint 4: 5-fold CV + CI + leakage-free extras
+
+- Scope: official 5-fold CV (folds 0–4) for the Sprint 3 top-4, tuned config
+  (VLD-17), on A100. NEW `_cv` ids so tuned fold-0 runs do not overwrite the
+  Sprint 3 `_finetune_official` artifacts (009-vit-cv.md).
+- Commands (Colab A100, `colab/vit_finetune_runner.ipynb`):
+  - CV: `uv run --no-sync python scripts/train.py --config configs/vit/experiment_matrix.yaml --experiment <cv_id> --fold <k> --device cuda`
+    for `{02_single_swin_t_cv, 09_pair_swin_t_beit_b_weighted_cv,
+    11_triple_weighted_cv, 05_pair_vit_b_beit_b_concat_cv}` × folds 0–4 (20 runs).
+  - Seed ensemble (top-1 = `11_triple_weighted_cv`): same with `--fold <k>
+    --seed {123,2024}` × folds 0–4 (+10 runs).
+  - Aggregation: `uv run python scripts/summarize_vit_cv.py` (CV mean±std + CI);
+    `uv run python scripts/eval_tta_ensemble.py --mode {tta,ensemble}`.
+- A100 / provenance: VLD-11 A100 gate before each fine-tune; archive dataset
+  staging (KI-VIT-001) + fast local-hash provenance. Colab/Linux makes the tuned
+  `num_workers=8` safe (KI-VIT-002 is Windows-only).
+- Run artifact status: 20 CV + 10 seed-ensemble run dirs each contain
+  `metrics.json`, `config.yaml`, `predictions.npz`, `best.pt`; fold/seed tags
+  correct; finite metrics; Sprint 3 fold-0 runs intact.
+- Fold integrity: the 5 fold test sets are disjoint (pairwise overlap 0) and
+  union to the full 10662 — pooled out-of-fold bootstrap CI is valid (VLD-13).
+- 5-fold CV (mean macro-F1 ± std; pooled 95% CI; full table in
+  `results_progress.md`):
+  1. `11_triple_weighted_cv` — 0.6094±0.0254, pooled 0.6119 [0.5930, 0.6295].
+  2. `02_single_swin_t_cv` — 0.5969±0.0261, pooled 0.5985 [0.5806, 0.6152].
+  3. `09_pair_swin_t_beit_b_weighted_cv` — 0.5879±0.0111, pooled 0.5893 [0.5736, 0.6054].
+  4. `05_pair_vit_b_beit_b_concat_cv` — 0.5727±0.0149, pooled 0.5753 [0.5638, 0.5863].
+- Best ViT fusion config: `11_triple_weighted` (V+S+B, weighted) — re-ranks the
+  Sprint 3 fold-0 result (single Swin-T led there). CIs overlap (best by mean,
+  not a clean separation) — to be discussed in the report §5.5.
+- Leakage-free extras (best config, within-fold softmax averaging):
+  - TTA (orig+hflip): 0.6116 -> 0.6105 [0.5920, 0.6280] = -0.0011 (no gain).
+  - seed ensemble (42,123,2024): 0.6116 -> 0.6157 [0.5994, 0.6321] = +0.0041.
+- Final selected model locked as VLD-18.
+- Validation: `uv run pytest tests/` passed on 2026-06-23 (`264 passed`).

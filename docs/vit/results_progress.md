@@ -169,6 +169,60 @@ Validation: `uv run pytest tests/` passed on 2026-06-20 (`249 passed`).
   seed/hardware/dtype). Training dynamics healthy; config locked for Sprint 4.
 
 ## Sprint 4 — 5-fold CV + CI (A100)
+*Status: complete. Slice 6 documentation completed on 2026-06-23.*
+
+### Run validation
+
+- 5-fold CV (folds 0–4) for the top-4, with NEW `_cv` ids (tuned config VLD-17,
+  A100), so the Sprint 3 `_finetune_official` fold-0 artifacts stay intact.
+  20 CV runs + 10 top-1 seed-ensemble runs; all have `metrics.json`,
+  `config.yaml`, `predictions.npz`, `best.pt`, correct fold/seed tags, finite
+  test metrics. Per-fold per-class metrics + confusion matrix are preserved in
+  each run's `metrics.json` (VLD-10).
+- The five official fold test sets are **disjoint and cover the dataset once**
+  (overlap 0; union 10662), so concatenating their predictions gives one
+  out-of-fold (OOF) prediction per sample — leakage-free (VLD-13; no fold-model
+  averaging).
+
+### 5-fold CV ranking (by mean macro-F1)
+
+Source: `results/vit/runs/{cv_id}[_fold_k]/metrics.json` + `predictions.npz`;
+aggregated by `scripts/summarize_vit_cv.py`. Bootstrap 95% CI over OOF preds.
+
+| rank | config | bb | fusion | Acc (mean±std) | macro-F1 (mean±std) | macro-F1 pooled [95% CI] | macro-P (mean±std) | macro-R (mean±std) |
+|---:|---|---|---|---|---|---|---|---|
+| 1 | `11_triple_weighted_cv` | V+S+B | weighted | 0.8780±0.0140 | **0.6094±0.0254** | 0.6119 [0.5930, 0.6295] | 0.6111±0.0243 | 0.6246±0.0226 |
+| 2 | `02_single_swin_t_cv` | S | none | 0.8679±0.0097 | 0.5969±0.0261 | 0.5985 [0.5806, 0.6152] | 0.5958±0.0267 | 0.6148±0.0257 |
+| 3 | `09_pair_swin_t_beit_b_weighted_cv` | S+B | weighted | 0.8652±0.0058 | 0.5879±0.0111 | 0.5893 [0.5736, 0.6054] | 0.5826±0.0138 | 0.6106±0.0153 |
+| 4 | `05_pair_vit_b_beit_b_concat_cv` | V+B | concat | 0.8454±0.0084 | 0.5727±0.0149 | 0.5753 [0.5638, 0.5863] | 0.5728±0.0137 | 0.6006±0.0220 |
+
+- **Best ViT fusion config = `11_triple_weighted` (V+S+B, weighted).** This
+  **re-ranks** the Sprint 3 *fold-0* result (single Swin-T led there); on full
+  5-fold CV the triple wins.
+- **Honest caveat (for the report §5.5):** the top configs' CIs overlap (triple
+  [0.593, 0.630] vs single Swin-T [0.581, 0.615]) — best by mean, not a clean
+  statistical separation.
+
+### Leakage-free extras (best config `11_triple_weighted`)
+
+Within-fold softmax averaging, OOF macro-F1 + bootstrap 95% CI
+(`scripts/eval_tta_ensemble.py`; single-seed recompute 0.6116 ≈ saved-pred
+pooled 0.6119, a ~0.0003 float-precision difference).
+
+| variant | OOF macro-F1 | 95% CI | Δ vs single-seed |
+|---|---:|---|---:|
+| single (seed 42) | 0.6116 | — | — |
+| TTA (orig + hflip) | 0.6105 | [0.5920, 0.6280] | **−0.0011 (no gain)** |
+| seed ensemble (42,123,2024) | **0.6157** | [0.5994, 0.6321] | **+0.0041** |
+
+- **TTA gave no gain** on this dataset (consistent with the CNN project's
+  Week-3.5 finding). The **seed ensemble gives a small positive gain** and is the
+  CI-backed headline for the best ViT fusion model: **macro-F1 ≈ 0.616
+  [0.599, 0.632]**.
+
+Validation: `uv run pytest tests/` passed on 2026-06-23 (`264 passed`).
+
+## Sprint 5 — Interpretability + report
 *Status: not started*
 
 ## Sprint 5 — Interpretability + report
