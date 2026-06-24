@@ -202,6 +202,11 @@ decisions D-07/D-08/D-09 from `docs/decisions.md` are reused where noted.
   gate — documented here; the frozen CNN artifacts are not changed (PLD-/tag
   `cnn-submission`).
 - Does not change any other VLD; concat/weighted fusion untouched.
+- **Ablation result (Sprint 4.5 fold-0 screen, faithful gate):** GMU did NOT beat
+  the best weighted. Triple-GMU 0.5525 vs triple-weighted 0.6102 (−0.058); only
+  S+B-GMU edged its weighted counterpart (+0.0137) but stayed below the headline.
+  No GMU config was promoted to 5-fold CV; the **final model remains
+  `11_triple_weighted`** (VLD-18). GMU is reported as an honest negative result.
 
 ## Open instructor-ambiguity flags (to address in the report)
 

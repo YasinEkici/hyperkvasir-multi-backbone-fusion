@@ -222,8 +222,43 @@ pooled 0.6119, a ~0.0003 float-precision difference).
 
 Validation: `uv run pytest tests/` passed on 2026-06-23 (`264 passed`).
 
-## Sprint 5 — Interpretability + report
-*Status: not started*
+## Sprint 4.5 — GMU fusion ablation (optional stretch)
+*Status: complete. Slice 5 documentation completed on 2026-06-24.*
+
+GMU (Gated Multimodal Unit, Arevalo et al. 2017) evaluated as an optional third
+fusion method (VLD-07), implemented with a **faithful element-wise gate**
+(VLD-19) — not the legacy per-branch scalar gate. Multi-backbone only (pairs +
+triple); singles have no fusion.
+
+### Fold-0 screen (tuned config, A100) vs the tuned `_cv` fold-0 baselines
+
+Same fold as the Sprint 4 `_cv` fold-0, so the comparison is like-for-like.
+Source: `results/vit/runs/{id}/metrics.json`.
+
+| GMU config | bb | macro-F1 | Acc | same-backbone tuned baseline | Δ macro-F1 |
+|---|---|---:|---:|---|---:|
+| `pair_swin_t_beit_b_gmu_cv` | S+B | 0.5995 | 0.8728 | S+B weighted (0.5858) | **+0.0137** |
+| `pair_vit_b_beit_b_gmu_cv` | V+B | 0.5773 | 0.8567 | V+B concat (0.5795) | −0.0022 |
+| `pair_vit_b_swin_t_gmu_cv` | V+S | 0.5744 | 0.8516 | (no tuned counterpart; `04` dropped) | n/a |
+| `triple_vit_swin_beit_gmu_cv` | V+S+B | 0.5525 | 0.8355 | triple weighted (0.6102) | **−0.0577** |
+
+### Outcome — no promotion (GMU does not beat the best)
+
+- **No GMU config beats the overall best** (`11_triple_weighted`, 5-fold 0.6094 /
+  fold-0 0.6102). The natural headline candidate, **triple-GMU, regressed sharply
+  (−0.058)** — the faithful per-feature gate over 3 modalities underperformed
+  simple weighted fusion under the limited fine-tune budget.
+- The only GMU win is **S+B-GMU (+0.0137 vs S+B-weighted)**, but at 0.5995 it sits
+  below the headline triple and on a structurally weaker backbone set
+  (S+B-weighted 5-fold was 0.5879).
+- Per the Sprint 4.5 promotion criterion, **no GMU config was promoted to 5-fold
+  CV** (Stage 2 not run). **Final model stays `11_triple_weighted`** (VLD-18).
+- Report §5.5 framing: GMU was screened on fold 0 (same fold as the CV configs'
+  fold-0) and did not beat the best weighted — a legitimate funnel decision (cf.
+  Sprint 3). The faithful gate (VLD-19) makes "GMU (Arevalo 2017)" an honest
+  citation.
+
+Validation: `uv run pytest tests/` passed on 2026-06-24 (`274 passed`).
 
 ## Sprint 5 — Interpretability + report
 *Status: not started*
