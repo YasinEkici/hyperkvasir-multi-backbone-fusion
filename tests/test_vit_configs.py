@@ -18,11 +18,11 @@ def test_vit_experiment_matrix_configs_parse() -> None:
     matrix = _read_yaml(matrix_path)
     experiments = matrix["experiments"]
 
-    # 11 Sprint 2 frozen + 5 Sprint 3 fine-tune + 4 Sprint 4 CV rows.
-    assert len(experiments) == 20
+    # 11 Sprint 2 frozen + 5 Sprint 3 fine-tune + 4 Sprint 4 CV + 4 Sprint 4.5 GMU.
+    assert len(experiments) == 24
     assert experiments[0]["id"] == "01_single_vit_b_frozen_official"
 
-    expected_fusions = {"none", "concat", "weighted"}
+    expected_fusions = {"none", "concat", "weighted", "gmu"}
     for exp in experiments:
         dataset_path = ROOT / exp["dataset"]
         method_path = ROOT / exp["method"]
@@ -41,7 +41,7 @@ def test_vit_experiment_matrix_configs_parse() -> None:
         if len(method["backbone_names"]) == 1:
             assert method["fusion_type"] == "none"
         else:
-            assert method["fusion_type"] in {"concat", "weighted"}
+            assert method["fusion_type"] in {"concat", "weighted", "gmu"}
 
 
 def test_sprint3_finetune_rows() -> None:
@@ -81,7 +81,8 @@ def test_sprint4_cv_rows() -> None:
         "11_triple_weighted_cv": "triple_vit_swin_beit_weighted",
         "05_pair_vit_b_beit_b_concat_cv": "pair_vit_b_beit_b_concat",
     }
-    cv_ids = {e["id"] for e in matrix["experiments"] if e["id"].endswith("_cv")}
+    cv_ids = {e["id"] for e in matrix["experiments"]
+              if e["id"].endswith("_cv") and "gmu" not in e["id"]}
     assert cv_ids == set(expected), "exactly the four top-4 CV rows"
     # the dropped Sprint 3 config 04 must not appear as a CV row
     assert not any("04_pair_vit_b_swin_t_concat" in i for i in cv_ids)
@@ -93,6 +94,34 @@ def test_sprint4_cv_rows() -> None:
         method = _read_yaml(ROOT / row["method"])
         assert method["classifier"] == "mlp"
         assert method["fusion_type"] in {"none", "concat", "weighted"}
+
+
+def test_sprint45_gmu_rows() -> None:
+    """The four Sprint 4.5 GMU ablation rows (multi-backbone, faithful gate)."""
+    matrix = _read_yaml(ROOT / "configs" / "vit" / "experiment_matrix.yaml")
+    experiments = {e["id"]: e for e in matrix["experiments"]}
+    expected = {
+        "pair_vit_b_swin_t_gmu_cv": ("pair_vit_b_swin_t_gmu", ["vit_b", "swin_t"]),
+        "pair_vit_b_beit_b_gmu_cv": ("pair_vit_b_beit_b_gmu", ["vit_b", "beit_b"]),
+        "pair_swin_t_beit_b_gmu_cv": ("pair_swin_t_beit_b_gmu", ["swin_t", "beit_b"]),
+        "triple_vit_swin_beit_gmu_cv": ("triple_vit_swin_beit_gmu",
+                                        ["vit_b", "swin_t", "beit_b"]),
+    }
+    gmu_ids = {e["id"] for e in matrix["experiments"] if "gmu" in e["id"]}
+    assert gmu_ids == set(expected), "exactly the four GMU ablation rows"
+    for exp_id, (method_stem, backbones) in expected.items():
+        row = experiments[exp_id]
+        assert row["training"] == "configs/vit/training/vit_finetune.yaml"
+        assert row["method"] == f"configs/vit/method/{method_stem}.yaml"
+        assert row["fold"] == 0
+        method = _read_yaml(ROOT / row["method"])
+        assert method["fusion_type"] == "gmu"
+        # faithful element-wise gate (VLD-19) — not the legacy scalar default
+        assert method["fusion_kwargs"]["gate_mode"] == "elementwise"
+        assert method["classifier"] == "mlp"
+        assert method["projection_dim"] == 512
+        assert method["backbone_names"] == backbones
+        assert len(backbones) >= 2  # GMU is multi-backbone only (no singles)
 
 
 def test_vit_finetune_perf_config_sprint35() -> None:

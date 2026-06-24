@@ -258,3 +258,32 @@ and trace to a resolved config (provenance gate, CNN D-09 reused).
   - seed ensemble (42,123,2024): 0.6116 -> 0.6157 [0.5994, 0.6321] = +0.0041.
 - Final selected model locked as VLD-18.
 - Validation: `uv run pytest tests/` passed on 2026-06-23 (`264 passed`).
+
+## 2026-06-24 - Sprint 4.5: GMU fusion ablation (optional stretch)
+
+- Scope: evaluate GMU (Arevalo 2017) as a 3rd fusion method (VLD-07), with a
+  **faithful element-wise gate** (VLD-19, `gate_mode: elementwise`) — not the
+  legacy scalar gate. Multi-backbone only (3 pairs + triple); no singles.
+- Code (Slice 0): added `gate_mode` to `src/models/fusion/gmu.py` (elementwise =
+  paper-faithful, reduces to the bimodal for N=2; scalar default = CNN
+  back-compat), wired `fusion_kwargs` through `full_model.py` + `train.py`.
+  9 unit tests (`tests/test_gmu_gate.py`).
+- Configs (Slice 1): 4 GMU method configs + 4 `*_gmu_cv` matrix rows (tuned
+  config VLD-17). Runner preset (Slice 2): `colab/vit_finetune_runner.ipynb` GMU
+  fold-0 screen (namespace `sprint45_vit_gmu`).
+- Commands (Colab A100): `uv run --no-sync python scripts/train.py --config
+  configs/vit/experiment_matrix.yaml --experiment <gmu_cv_id> --fold 0 --device cuda`
+  for the 4 GMU ids. A100 gate (VLD-11) + archive staging (KI-VIT-001) + fast
+  provenance.
+- Stage 1 fold-0 screen (macro-F1; vs same-backbone tuned `_cv` fold-0):
+  - `pair_swin_t_beit_b_gmu_cv` (S+B): 0.5995 vs S+B-weighted 0.5858 (+0.0137).
+  - `pair_vit_b_beit_b_gmu_cv` (V+B): 0.5773 vs V+B-concat 0.5795 (-0.0022).
+  - `pair_vit_b_swin_t_gmu_cv` (V+S): 0.5744 (no tuned counterpart; `04` dropped).
+  - `triple_vit_swin_beit_gmu_cv` (V+S+B): 0.5525 vs triple-weighted 0.6102 (-0.0577).
+- Run artifact status: 4 GMU fold-0 runs each have `metrics.json`, `config.yaml`,
+  `predictions.npz`, `best.pt`; finite metrics.
+- Stage 2 (conditional CV promotion): **NOT run** — no GMU config is competitive
+  with / beats the best weighted (`11_triple_weighted`, 0.6102 fold-0 / 0.6094
+  5-fold). Triple-GMU regressed sharply (-0.058). Decision: GMU evaluated, no gain;
+  **final model stays `11_triple_weighted`** (VLD-18). See VLD-19.
+- Validation: `uv run pytest tests/` passed on 2026-06-24 (`274 passed`).

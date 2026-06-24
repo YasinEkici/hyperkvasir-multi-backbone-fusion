@@ -127,3 +127,31 @@ experiments:
     method: "configs/vit/method/pair_vit_b_beit_b_concat.yaml"
     training: "configs/vit/training/vit_finetune.yaml"
     fold: 0
+
+  # ── Sprint 4.5 GMU fusion ablation (010-vit-gmu.md) ───────────────────
+  # GMU (faithful element-wise gate, VLD-19) on the multi-backbone sets (pairs +
+  # triple; no singles — GMU needs ≥2 branches). Tuned config (VLD-17). Fold-0
+  # screen first; promote a competitive config to 5-fold CV via --fold.
+  - id: "pair_vit_b_swin_t_gmu_cv"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/pair_vit_b_swin_t_gmu.yaml"
+    training: "configs/vit/training/vit_finetune.yaml"
+    fold: 0
+
+  - id: "pair_vit_b_beit_b_gmu_cv"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/pair_vit_b_beit_b_gmu.yaml"
+    training: "configs/vit/training/vit_finetune.yaml"
+    fold: 0
+
+  - id: "pair_swin_t_beit_b_gmu_cv"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/pair_swin_t_beit_b_gmu.yaml"
+    training: "configs/vit/training/vit_finetune.yaml"
+    fold: 0
+
+  - id: "triple_vit_swin_beit_gmu_cv"
+    dataset: "configs/dataset/hyperkvasir_23class_official.yaml"
+    method: "configs/vit/method/triple_vit_swin_beit_gmu.yaml"
+    training: "configs/vit/training/vit_finetune.yaml"
+    fold: 0

@@ -53,8 +53,10 @@ class MultiCNNFusionClassifier(nn.Module):
         mlp_hidden: list[int] = [256],
         dropout: float = 0.3,
         drop_path_rate: float = 0.0,
+        fusion_kwargs: dict | None = None,
     ):
         super().__init__()
+        self.fusion_kwargs = fusion_kwargs or {}
         self.backbone_names = backbone_names
         self.unfreeze_blocks = unfreeze_blocks
         self.projection_dim = projection_dim
@@ -94,7 +96,7 @@ class MultiCNNFusionClassifier(nn.Module):
             fusion_out_dim = self.fusion.output_dim
         elif fusion_type == "gmu":
             from src.models.fusion.gmu import FusionModule as GMUFusion
-            self.fusion = GMUFusion(num_branches=num_branches, feature_dim=projection_dim)
+            self.fusion = GMUFusion(num_branches=num_branches, feature_dim=projection_dim, **self.fusion_kwargs)
             fusion_out_dim = self.fusion.output_dim
         else:
             raise ValueError(f"Unsupported fusion type: {fusion_type}")

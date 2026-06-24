@@ -132,8 +132,10 @@ class FrozenHeadModel(nn.Module):
         num_classes: int,
         mlp_hidden: list[int],
         dropout: float,
+        fusion_kwargs: dict | None = None,
     ):
         super().__init__()
+        self.fusion_kwargs = fusion_kwargs or {}
         self.backbone_names = backbone_names
         self.fusion_type = fusion_type
         self.backbone_dims = [_backbone_feature_dim(n) for n in backbone_names]
@@ -159,7 +161,7 @@ class FrozenHeadModel(nn.Module):
             fusion_out_dim = self.fusion.output_dim
         elif fusion_type == "gmu":
             from src.models.fusion.gmu import FusionModule
-            self.fusion = FusionModule(num_branches=num_branches, feature_dim=projection_dim)
+            self.fusion = FusionModule(num_branches=num_branches, feature_dim=projection_dim, **self.fusion_kwargs)
             fusion_out_dim = self.fusion.output_dim
         else:
             raise ValueError(f"Unsupported fusion_type: {fusion_type}")
@@ -489,6 +491,7 @@ def main() -> None:
     fusion_type: str = method_cfg.get("fusion_type", "none")
     mlp_hidden: list[int] = method_cfg.get("mlp_hidden", [256])
     dropout: float = float(method_cfg.get("dropout", 0.3))
+    fusion_kwargs: dict = method_cfg.get("fusion_kwargs", {}) or {}
     num_classes: int = int(dataset_cfg["num_classes"])
 
     epochs: int = int(training_cfg.get("epochs", 60))
@@ -540,6 +543,7 @@ def main() -> None:
             mlp_hidden=mlp_hidden,
             dropout=dropout,
             drop_path_rate=drop_path_rate,
+            fusion_kwargs=fusion_kwargs,
         )
 
         opt_cfg = training_cfg.get("optimizer", {})
@@ -613,6 +617,7 @@ def main() -> None:
             num_classes=num_classes,
             mlp_hidden=mlp_hidden,
             dropout=dropout,
+            fusion_kwargs=fusion_kwargs,
         )
 
         optimizer = build_optimizer(model, training_cfg.get("optimizer", {}))
