@@ -17,8 +17,12 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from scripts.interpret_common import (  # noqa: E402
+    class_log_prior,
     cls_map_to_grid,
     denormalize,
+    logit_adjust,
+    mcnemar_contingency,
+    mcnemar_pvalue,
     pick_examples,
     rollout_from_attentions,
     select_classes_by_f1,
@@ -169,3 +173,58 @@ def test_subsample_is_sorted_and_deterministic():
     np.testing.assert_array_equal(a, b)                 # deterministic
     np.testing.assert_array_equal(a, np.sort(a))        # sorted
     assert set(np.unique(labels)).issubset(set(labels[a]))  # all classes present
+
+
+# --------------------------------------------------------------------------- #
+# Slice 3 — logit adjustment + McNemar (pure math)
+# --------------------------------------------------------------------------- #
+
+def test_class_log_prior_uniform_and_sums_to_one():
+    lp = class_log_prior([10, 10, 10, 10])
+    np.testing.assert_allclose(lp, np.log(0.25) * np.ones(4))
+    np.testing.assert_allclose(np.exp(lp).sum(), 1.0, atol=1e-9)
+
+
+def test_class_log_prior_orders_by_frequency():
+    lp = class_log_prior([1, 99])  # class 1 far more frequent
+    assert lp[1] > lp[0]
+
+
+def test_logit_adjust_tau_zero_is_noop():
+    logits = np.array([[2.0, 1.0, 0.0], [0.0, 3.0, 1.0]])
+    lp = class_log_prior([1, 100, 10])
+    np.testing.assert_array_equal(logit_adjust(logits, lp, tau=0.0), logits)
+
+
+def test_logit_adjust_subtracts_scaled_prior():
+    logits = np.zeros((2, 3))
+    lp = np.array([-1.0, -2.0, -3.0])
+    out = logit_adjust(logits, lp, tau=2.0)
+    np.testing.assert_allclose(out, np.tile(-2.0 * lp, (2, 1)))
+    # boosting rare classes: smallest prior gets the largest positive shift
+    assert out[0].argmax() == 2  # class 2 has the smallest (most negative) log-prior
+
+
+def test_mcnemar_contingency_counts():
+    labels = np.array([0, 1, 2, 3])
+    a = np.array([0, 1, 9, 9])   # a correct on 0,1
+    b = np.array([0, 9, 2, 9])   # b correct on 0,2
+    t = mcnemar_contingency(a, b, labels)
+    assert t == {"both_correct": 1, "a_only": 1, "b_only": 1, "both_wrong": 1}
+
+
+def test_mcnemar_pvalue_symmetric_is_one():
+    r = mcnemar_pvalue(a_only=10, b_only=10)
+    assert r["n_discordant"] == 20
+    np.testing.assert_allclose(r["p_exact"], 1.0)
+
+
+def test_mcnemar_pvalue_extreme_is_significant():
+    r = mcnemar_pvalue(a_only=15, b_only=1)
+    assert r["p_exact"] < 0.05
+    assert r["chi2_cc"] > 3.84  # > chi2 crit (df=1, 0.05)
+
+
+def test_mcnemar_pvalue_no_discordant():
+    r = mcnemar_pvalue(a_only=0, b_only=0)
+    assert r == {"chi2_cc": 0.0, "p_exact": 1.0, "n_discordant": 0}

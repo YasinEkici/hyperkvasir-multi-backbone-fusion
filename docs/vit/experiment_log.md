@@ -329,3 +329,28 @@ and trace to a resolved config (provenance gate, CNN D-09 reused).
 - Validation: `uv run pytest tests/` → `289 passed` (2026-06-24); locked files
   (`backbones.py`, `vit_backbones.py`, configs, decisions) untouched; figures small,
   checkpoints gitignored.
+
+## 2026-06-24 - Sprint 5 Slice 3: leakage-free add-ons (logit adjustment + McNemar)
+
+- Scope: two additive, inference-only, leakage-free analyses (VLD-20); champion
+  `11_triple_weighted` unchanged. 0 A100.
+- Code: `scripts/eval_logit_adjust.py` (recompute OOF logits from best.pt per fold,
+  subtract τ·log(train_prior), τ sweep + bootstrap CI, built-in τ=0 vs stored
+  check), `scripts/stats_mcnemar.py` (paired OOF from stored predictions.npz,
+  2×2 table + exact binomial p). Pure helpers (class_log_prior, logit_adjust,
+  mcnemar_contingency, mcnemar_pvalue, predict_logits) in interpret_common; 8 new
+  tests (`tests/test_interpret.py`, 23 total).
+- Commands: `uv run python scripts/eval_logit_adjust.py --run 11_triple_weighted_cv`;
+  `uv run python scripts/stats_mcnemar.py --champion 11_triple_weighted_cv
+  --baseline 02_single_swin_t_cv` (and `--baseline 09_pair_swin_t_beit_b_weighted_cv`).
+- Logit adjustment (OOF macro-F1): τ=0 0.6118 / τ=0.5 0.6022 / τ=1.0 0.4911 /
+  τ=1.5 0.1079 / τ=2.0 0.0301 — monotonic decline (over-correction vs the balanced
+  sampler). Figure `reports/vit/figures/logit_adjust_tau.png`. Honest negative.
+- McNemar (N=10662): vs single Swin-T χ²cc 15.25 p=9.2e-05 (422 vs 315); vs pair
+  S+B χ²cc 25.25 p=4.7e-07 (423 vs 288) — champion significantly more accurate
+  (accuracy-level, complements the CI-overlapping macro-F1).
+- Built-in check: τ=0 reproduces stored OOF preds 10661/10662 (1 near-tie flip,
+  bf16/TF32 vs fp32, VLD-17). Labels exact-match all folds.
+- Validation: `uv run pytest tests/` → `297 passed` (2026-06-24); `backbones.py` /
+  `vit_backbones.py` / configs untouched; final-model numbers unchanged; only small
+  PNG committed, checkpoints gitignored.

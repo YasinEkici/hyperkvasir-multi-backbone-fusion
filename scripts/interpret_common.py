@@ -215,6 +215,87 @@ def subsample_indices_per_class(
     return np.array(sorted(keep), dtype=int)
 
 
+# ---------------------------------------------------------------------------
+# Slice 3 — leakage-free add-on math (pure, unit-tested)
+# ---------------------------------------------------------------------------
+
+def class_log_prior(counts, eps: float = 1e-12) -> np.ndarray:
+    """``log`` of the class prior from training-fold label counts (VLD-13).
+
+    Priors come from the TRAIN split only; used to post-hoc adjust OOF test
+    logits.  ``eps`` guards empty classes.
+    """
+    counts = np.asarray(counts, dtype=np.float64)
+    prior = counts / counts.sum()
+    return np.log(np.clip(prior, eps, None))
+
+
+def logit_adjust(logits: np.ndarray, log_prior: np.ndarray, tau: float = 1.0) -> np.ndarray:
+    """Post-hoc logit adjustment (Menon et al. 2020): ``logits - tau * log_prior``.
+
+    ``tau=0`` returns the logits unchanged (the unadjusted champion); ``tau=1``
+    is the parameter-free posterior correction.  Broadcasts ``(C,)`` over
+    ``(N, C)``.
+    """
+    return np.asarray(logits, dtype=np.float64) - float(tau) * np.asarray(
+        log_prior, dtype=np.float64
+    )
+
+
+def mcnemar_contingency(preds_a, preds_b, labels) -> dict[str, int]:
+    """2×2 paired-correctness table for two models on the SAME labelled samples."""
+    a = np.asarray(preds_a) == np.asarray(labels)
+    b = np.asarray(preds_b) == np.asarray(labels)
+    return {
+        "both_correct": int((a & b).sum()),
+        "a_only": int((a & ~b).sum()),      # a right, b wrong
+        "b_only": int((~a & b).sum()),      # a wrong, b right
+        "both_wrong": int((~a & ~b).sum()),
+    }
+
+
+def mcnemar_pvalue(a_only: int, b_only: int) -> dict[str, float]:
+    """McNemar's test on the discordant pairs (Dietterich 1998).
+
+    Returns the continuity-corrected chi-square statistic and the *exact*
+    two-sided binomial p-value (preferred for moderate discordant counts).
+    """
+    n = int(a_only) + int(b_only)
+    if n == 0:
+        return {"chi2_cc": 0.0, "p_exact": 1.0, "n_discordant": 0}
+    chi2_cc = (abs(a_only - b_only) - 1) ** 2 / n
+    from scipy.stats import binomtest
+
+    p = binomtest(min(int(a_only), int(b_only)), n, 0.5,
+                  alternative="two-sided").pvalue
+    return {"chi2_cc": float(chi2_cc), "p_exact": float(p), "n_discordant": n}
+
+
+@torch.no_grad()
+def predict_logits(model, ds, device: str, batch_size: int = 32):
+    """Single forward pass over ``ds`` -> ``(logits [N,C], labels [N])`` (ds order)."""
+    logits_all, labels = [], []
+    batch_imgs, batch_lbls = [], []
+
+    def _flush():
+        if not batch_imgs:
+            return
+        x = torch.stack(batch_imgs).to(device)
+        logits_all.append(model(x).cpu().numpy())
+        labels.append(np.asarray(batch_lbls))
+        batch_imgs.clear()
+        batch_lbls.clear()
+
+    for i in range(len(ds)):
+        img, label, _ = ds[i]
+        batch_imgs.append(img)
+        batch_lbls.append(int(label))
+        if len(batch_imgs) == batch_size:
+            _flush()
+    _flush()
+    return np.concatenate(logits_all), np.concatenate(labels)
+
+
 @torch.no_grad()
 def extract_features(model, ds, device: str, batch_size: int = 32):
     """Single forward pass -> per-branch 512-d, fused 512-d, labels (ds order).

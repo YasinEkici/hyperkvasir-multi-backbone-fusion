@@ -307,3 +307,23 @@ Validation: `uv run pytest tests/` passed on 2026-06-24 (`274 passed`).
   visualisation only — not a model metric, champion unchanged.
 - Validation: `uv run pytest tests/` → 289 passed; locked files untouched; figures
   are small PNGs under `reports/vit/figures/`, traceable to the checkpoint.
+
+### Slice 3 — Optional leakage-free add-ons (logit adjustment + McNemar)
+Both additive, inference-only, leakage-free (VLD-13/VLD-20); champion unchanged.
+- **Post-hoc logit adjustment (Menon 2020):** recomputed OOF test logits from each
+  fold's `best.pt`, subtracted `τ·log(train_prior)` (prior from TRAIN split only).
+  **Honest negative — macro-F1 falls monotonically with τ:** τ=0 0.6118
+  [0.593,0.629] → τ=0.5 0.6022 → **τ=1.0 0.4911** [0.481,0.500] → collapse.
+  Cause: the WeightedRandomSampler already balances training, so its implicit prior
+  is ~uniform; prior subtraction double-corrects. → balanced sampler is the right
+  imbalance mechanism (§5.5). Sensitivity curve: `reports/vit/figures/logit_adjust_tau.png`.
+- **McNemar (Dietterich 1998), paired OOF N=10662:** champion is **significantly
+  more accurate** than the best single (`02_single_swin_t`: χ²cc 15.25, exact
+  p=9.2e-05, 422 vs 315) and the best pair (`09_pair_swin_t_beit_b_weighted`:
+  χ²cc 25.25, p=4.7e-07, 423 vs 288). Accuracy-level test — complements (not
+  contradicts) the CI-overlapping macro-F1 result.
+- Built-in check: τ=0 reproduces stored champion OOF preds (10661/10662; 1 near-tie
+  flip, bf16/TF32 vs fp32 — VLD-17). New scripts: `scripts/eval_logit_adjust.py`,
+  `scripts/stats_mcnemar.py`; helpers + 8 tests in `interpret_common`/`test_interpret`.
+- Validation: `uv run pytest tests/` → 297 passed; locked files / final-model
+  numbers unchanged; no large artifacts.
