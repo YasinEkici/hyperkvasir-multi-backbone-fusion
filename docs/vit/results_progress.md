@@ -286,3 +286,24 @@ Validation: `uv run pytest tests/` passed on 2026-06-24 (`274 passed`).
   `interpret_gradcam.py`; tests `tests/test_interpret.py` (13). No train.py change.
 - Validation: `uv run pytest tests/` → 287 passed; `backbones.py` /
   `vit_backbones.py` untouched; checkpoints stay gitignored.
+
+### Slice 2 — Feature-space analysis (UMAP)
+- Inference-only from `11_triple_weighted` (`best.pt`), fold-0 OOF test (2122,
+  leakage-free VLD-13). 0 A100. UMAP (McInnes 2018) on the 512-d **fused**
+  (weighted) and **per-branch projected** features (VLD-05), extracted by calling
+  the trained projection/fusion submodules (no edit to `full_model.py`).
+- `umap_fused.png`: distinct classes form well-separated clusters (e.g.
+  retroflex-stomach, hemorroids, normal-pylorus); the **ulcerative-colitis grades
+  (0-1/1/1-2/2/2-3/3) overlap heavily** — directly visualises the confusable/rare
+  classes that cap macro-F1 (§5.5).
+- `umap_branches.png`: ViT-B and Swin-T projections are cleaner / more separated;
+  **BEiT-B is more diffuse/entangled** — a per-backbone feature-quality cue for
+  the discussion (which backbone learned better features).
+- Reproducible (`random_state=42`); points capped at 150/class for readability
+  (rare classes kept in full); 1753/2122 points plotted.
+- New script `scripts/interpret_umap.py`; helpers `extract_features` +
+  `subsample_indices_per_class` added to `scripts/interpret_common.py`; 2 more
+  unit tests (`tests/test_interpret.py`, 15 total). UMAP is unsupervised /
+  visualisation only — not a model metric, champion unchanged.
+- Validation: `uv run pytest tests/` → 289 passed; locked files untouched; figures
+  are small PNGs under `reports/vit/figures/`, traceable to the checkpoint.

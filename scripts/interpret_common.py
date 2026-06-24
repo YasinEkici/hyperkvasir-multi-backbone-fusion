@@ -197,6 +197,64 @@ def predict_all(model, ds, device: str, batch_size: int = 32) -> tuple[np.ndarra
     return np.concatenate(preds), np.concatenate(labels)
 
 
+def subsample_indices_per_class(
+    labels: np.ndarray, max_per_class: int, seed: int = 42
+) -> np.ndarray:
+    """Deterministic per-class cap on point count (keeps a UMAP scatter readable).
+
+    Returns sorted dataset indices keeping at most ``max_per_class`` per class.
+    Classes with fewer points are kept in full (rare classes never dropped).
+    """
+    rng = np.random.default_rng(seed)
+    keep: list[int] = []
+    for c in np.unique(labels):
+        idx = np.where(labels == c)[0]
+        if len(idx) > max_per_class:
+            idx = rng.choice(idx, size=max_per_class, replace=False)
+        keep.extend(int(i) for i in idx)
+    return np.array(sorted(keep), dtype=int)
+
+
+@torch.no_grad()
+def extract_features(model, ds, device: str, batch_size: int = 32):
+    """Single forward pass -> per-branch 512-d, fused 512-d, labels (ds order).
+
+    Reuses the trained model's own projection + fusion submodules (no edit to
+    ``full_model.py``); returns features *before* the MLP head (VLD-05).
+    """
+    names = list(model.backbone_names)
+    per_branch: dict[str, list[np.ndarray]] = {n: [] for n in names}
+    fused_all, labels = [], []
+    batch_imgs, batch_lbls = [], []
+
+    def _flush():
+        if not batch_imgs:
+            return
+        x = torch.stack(batch_imgs).to(device)
+        proj = {}
+        for n in names:
+            proj[n] = model.projections[n](model.backbones[n](x))
+            per_branch[n].append(proj[n].cpu().numpy())
+        if len(names) == 1 or model.fusion_type == "none":
+            fused = proj[names[0]]
+        else:
+            fused = model.fusion([proj[n] for n in names])
+        fused_all.append(fused.cpu().numpy())
+        labels.append(np.asarray(batch_lbls))
+        batch_imgs.clear()
+        batch_lbls.clear()
+
+    for i in range(len(ds)):
+        img, label, _ = ds[i]
+        batch_imgs.append(img)
+        batch_lbls.append(int(label))
+        if len(batch_imgs) == batch_size:
+            _flush()
+    _flush()
+    branch_feats = {n: np.concatenate(v) for n, v in per_branch.items()}
+    return branch_feats, np.concatenate(fused_all), np.concatenate(labels)
+
+
 def pick_examples(
     preds: np.ndarray,
     labels: np.ndarray,

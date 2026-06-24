@@ -309,3 +309,23 @@ and trace to a resolved config (provenance gate, CNN D-09 reused).
   `results/vit/runs/11_triple_weighted_cv/best.pt`. Swin maps finite (no fallback).
 - Validation: `uv run pytest tests/` → `287 passed` (2026-06-24);
   `src/models/backbones.py` + `vit_backbones.py` untouched; checkpoints gitignored.
+
+## 2026-06-24 - Sprint 5 Slice 2: feature-space analysis (UMAP)
+
+- Scope: UMAP (McInnes 2018) of the frozen final model's 512-d fused + per-branch
+  features. Inference-only from `best.pt`, fold-0 OOF test (2122, leakage-free
+  VLD-13). 0 A100; local GPU. Champion unchanged (visualisation, not a metric).
+- Code: `scripts/interpret_umap.py` (new); `extract_features` (calls trained
+  projection/fusion submodules, no `full_model.py` edit) + `subsample_indices_per_class`
+  added to `scripts/interpret_common.py`. 2 new unit tests (15 total in
+  `tests/test_interpret.py`).
+- Command: `uv run python scripts/interpret_umap.py --run 11_triple_weighted_cv`.
+- Output: `reports/vit/figures/umap_fused.png` (75 KB) + `umap_branches.png`
+  (181 KB), `random_state=42`, 150 pts/class cap (1753/2122 plotted), traceable to
+  `results/vit/runs/11_triple_weighted_cv/best.pt`.
+- Observations (qualitative, for §5.5): distinct classes separate cleanly; the UC
+  grades overlap (rare-class macro-F1 ceiling); ViT-B/Swin-T projections cleaner
+  than BEiT-B.
+- Validation: `uv run pytest tests/` → `289 passed` (2026-06-24); locked files
+  (`backbones.py`, `vit_backbones.py`, configs, decisions) untouched; figures small,
+  checkpoints gitignored.

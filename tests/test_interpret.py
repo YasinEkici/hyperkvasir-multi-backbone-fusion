@@ -22,6 +22,7 @@ from scripts.interpret_common import (  # noqa: E402
     pick_examples,
     rollout_from_attentions,
     select_classes_by_f1,
+    subsample_indices_per_class,
 )
 
 
@@ -146,3 +147,25 @@ def test_pick_examples_deterministic_lowest_first():
     preds = np.zeros(6, dtype=int)
     picks = pick_examples(preds, labels, classes=[0], n_correct=3, n_failure=0)
     assert picks[0]["correct"] == [0, 1, 2]
+
+
+# --------------------------------------------------------------------------- #
+# subsample_indices_per_class (UMAP point cap)
+# --------------------------------------------------------------------------- #
+
+def test_subsample_caps_each_class():
+    labels = np.array([0] * 200 + [1] * 50 + [2] * 5)
+    keep = subsample_indices_per_class(labels, max_per_class=30, seed=0)
+    kept = labels[keep]
+    assert (kept == 0).sum() == 30   # capped
+    assert (kept == 1).sum() == 30   # capped
+    assert (kept == 2).sum() == 5    # rare class kept in full
+
+
+def test_subsample_is_sorted_and_deterministic():
+    labels = np.array([0] * 100 + [1] * 100)
+    a = subsample_indices_per_class(labels, max_per_class=20, seed=42)
+    b = subsample_indices_per_class(labels, max_per_class=20, seed=42)
+    np.testing.assert_array_equal(a, b)                 # deterministic
+    np.testing.assert_array_equal(a, np.sort(a))        # sorted
+    assert set(np.unique(labels)).issubset(set(labels[a]))  # all classes present
