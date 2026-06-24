@@ -261,4 +261,28 @@ Source: `results/vit/runs/{id}/metrics.json`.
 Validation: `uv run pytest tests/` passed on 2026-06-24 (`274 passed`).
 
 ## Sprint 5 — Interpretability + report
-*Status: not started*
+*Status: in progress (Slice 1 done)*
+
+### Slice 1 — Interpretability: attention rollout + Grad-CAM++
+- Inference-only from the frozen final model `11_triple_weighted` (`best.pt`),
+  OOF test split of fold 0 (2122 images, leakage-free per VLD-13). 0 A100 units.
+- **Attention rollout** (Abnar & Zuidema 2020) for the CLS-token ViT-B and BEiT-B
+  branches: `A = 0.5 W_att + 0.5 I`, head-averaged, recursive matmul, CLS→14×14.
+  Attention captured by temporarily disabling timm `fused_attn` + hooking
+  `attn_drop` (no edit to `vit_backbones.py`).
+- **Grad-CAM++** (Chattopadhyay 2018, `pytorch-grad-cam`) for all three branches
+  with a transformer `reshape_transform` (last block `norm1`). **Swin caveat:**
+  timm Swin output is channels-last `(B,7,7,C)` → coarse 7×7 windowed map,
+  flagged in the figure; ViT-B/BEiT-B (14×14) are the faithful ones. Maps were
+  finite (no degenerate fallback triggered).
+- Classes auto-selected from the final model's per-class F1 (3 best + 3 worst,
+  non-zero support): best = retroflex-stomach (F1 1.00), normal-pylorus,
+  retroflex-rectum; worst = ulcerative-colitis-grade-2-3, -grade-1-2, hemorroids
+  — the confusable/rare classes that cap macro-F1 (ties into §5.5). Each panel
+  shows correct + a failure case (e.g. UC grade-2-3 → predicted grade-3).
+- Figures: `reports/vit/figures/{rollout,gradcam}_<class>.png` (12 small PNGs),
+  each traceable to `results/vit/runs/11_triple_weighted_cv/best.pt` (OOF fold 0).
+- New scripts: `scripts/interpret_common.py`, `interpret_attention_rollout.py`,
+  `interpret_gradcam.py`; tests `tests/test_interpret.py` (13). No train.py change.
+- Validation: `uv run pytest tests/` → 287 passed; `backbones.py` /
+  `vit_backbones.py` untouched; checkpoints stay gitignored.

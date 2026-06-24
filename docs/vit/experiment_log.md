@@ -287,3 +287,25 @@ and trace to a resolved config (provenance gate, CNN D-09 reused).
   5-fold). Triple-GMU regressed sharply (-0.058). Decision: GMU evaluated, no gain;
   **final model stays `11_triple_weighted`** (VLD-18). See VLD-19.
 - Validation: `uv run pytest tests/` passed on 2026-06-24 (`274 passed`).
+
+## 2026-06-24 - Sprint 5 Slice 1: interpretability (rollout + Grad-CAM++)
+
+- Scope: transformer-native interpretability for the frozen final model
+  `11_triple_weighted` (VLD-18). Inference-only from `best.pt`, OOF test fold 0
+  (2122 imgs, leakage-free VLD-13). 0 A100 units; local GPU.
+- Code (new, no train.py change): `scripts/interpret_common.py` (model+OOF
+  loader, denormalize, rollout math, class/example selection),
+  `scripts/interpret_attention_rollout.py` (ViT-B + BEiT-B; timm `fused_attn`
+  toggled off + `attn_drop` hook to capture post-softmax attention, flags
+  restored), `scripts/interpret_gradcam.py` (`GradCAMPlusPlus` + transformer
+  `reshape_transform`; Swin channels-last `(B,7,7,C)` handled + caveat).
+  13 unit tests (`tests/test_interpret.py`).
+- Commands: `uv run python scripts/interpret_attention_rollout.py --run
+  11_triple_weighted_cv` and `... interpret_gradcam.py --run 11_triple_weighted_cv`.
+- Selected classes (auto, per-class F1 from metrics.json): best = retroflex-stomach
+  / normal-pylorus / retroflex-rectum; worst = ulcerative-colitis-grade-2-3 /
+  -grade-1-2 / hemorroids. Failure cases included (e.g. UC 2-3 → pred 3).
+- Output: 12 PNGs under `reports/vit/figures/` (145–628 KB each), traceable to
+  `results/vit/runs/11_triple_weighted_cv/best.pt`. Swin maps finite (no fallback).
+- Validation: `uv run pytest tests/` → `287 passed` (2026-06-24);
+  `src/models/backbones.py` + `vit_backbones.py` untouched; checkpoints gitignored.
