@@ -1,0 +1,111 @@
+% =====================================================================
+% Multi-ViT Feature Fusion for HyperKvasir 23-class Classification
+% Final report — complete draft (Overleaf / pdfLaTeX compatible).
+% Report language: Turkish (assignment §5; academic register).
+%
+% RULES:
+%   - Every number traces to results/vit/ or docs/vit/ ; no invention.
+%   - macro-F1 is the headline metric; accuracy is supporting only (VLD-10).
+%   - Literature comparisons that use a different protocol are CONTEXTUAL only.
+%   - No state-of-the-art claims. Classifier is MLP only.
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+% --- Encoding & language (required for a Turkish report) ---------------
+% Cross-engine: pdfLaTeX/Overleaf uses inputenc+fontenc (the target toolchain);
+% XeLaTeX/LuaLaTeX (e.g. local `tectonic`) uses fontspec for native Unicode so
+% Turkish glyphs (ı, ş, ğ, ç, ö, ü) render correctly under either engine.
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[utf8]{inputenc}
+  \usepackage[T1]{fontenc}
+  \usepackage{lmodern}
+\else
+  \usepackage{fontspec}
+\fi
+\usepackage[turkish]{babel}
+% Turkish babel makes '=' an active shorthand, which breaks '=' inside
+% \includegraphics[width=...], TikZ option lists, etc. Disable it globally
+% (it only controls explicit hyphenation hints; normal text is unaffected).
+\AtBeginDocument{\shorthandoff{=}}
+
+% --- Allowed common packages ------------------------------------------
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta}
+\usepackage{hyperref}
+
+\graphicspath{{figures/}}
+
+\newcommand{\TODO}[1]{\textbf{\textcolor{red}{[TODO: #1]}}}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=blue
+}
+
+% =====================================================================
+\title{Çoklu ViT Tabanlı Özellik Füzyonu ile HiperKvasir\\
+       23-Sınıf Gastrointestinal Görüntü Sınıflandırması}
+\author{Yasin Ekici \\ Öğrenci No: 21360859029 \\[4pt]
+  \small \url{https://github.com/YasinEkici/hyperkvasir-multi-backbone-fusion}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Bu çalışmada, HiperKvasir veri kümesindeki 23 sınıflı ve sınıf dağılımı oldukça
+dengesiz gastrointestinal endoskopi görüntü sınıflandırması problemi ele
+alınmaktadır. Önceden eğitilmiş üç görüntü dönüştürücü (Vision Transformer)
+omurga ağı --- ViT-B/16, Swin-T ve BEiT-B/16 --- özellik çıkarıcı olarak
+kullanılmış; her daldan elde edilen 768 boyutlu havuzlanmış öznitelikler 512
+boyuta izdüşürülerek birleştirme (concatenation), ağırlıklı ve gelişmiş bir
+kapılı (GMU) füzyon yöntemiyle birleştirilmiş ve sabit bir çok katmanlı
+algılayıcı (MLP) ile sınıflandırılmıştır. Hem dondurulmuş öznitelik çıkarımı hem
+de son dönüştürücü bloklarının ince ayarı (fine-tune) değerlendirilmiştir.
+Değerlendirme, sızıntıya karşı denetlenmiş resmi 5-katlı protokol altında
+yürütülmüş; ana ölçüt olarak makro-F1, destekleyici ölçüt olarak doğruluk
+kullanılmış ve sonuçlar önyükleme (bootstrap) \%95 güven aralıklarıyla
+raporlanmıştır. Çapraz doğrulamada en iyi yapılandırma, üç omurganın ağırlıklı
+füzyonunun ince ayarlı sürümü olmuştur (havuzlanmış makro-F1 $0{,}6119$, \%95 GA
+$[0{,}5930,\,0{,}6295]$; doğruluk $\approx 0{,}88$). Bu yapılandırma, eşli
+McNemar testinde en iyi tekli omurgadan ve en iyi ikili füzyondan istatistiksel
+olarak anlamlı biçimde daha doğru bulunmuştur. Gelişmiş GMU füzyonu birleştirmeye
+kıyasla kazanım sağlamamış; test zamanı veri artırma (TTA) ve sızıntısız seed
+topluluğu güven aralığı düzeyinde ayırt edilebilir bir iyileşme getirmemiş; son
+işlem olarak uygulanan logit düzeltmesi ise makro-F1'i düşürmüştür. Havuzlanmış
+makro-F1 ($\approx 0{,}61$) ile doğruluk ($\approx 0{,}88$) arasındaki büyük
+fark, dengesizliğin doğrudan kanıtıdır: çok düşük destekli nadir sınıflar
+makro-F1'i aşağı çeker. Literatür sonuçları, protokol farkları nedeniyle yalnızca
+bağlamsal olarak ele alınmış; güncel-en-iyi (state-of-the-art) bir başarı
+iddiasında bulunulmamıştır.
+\end{abstract}
+
+\input{sections/01_introduction}
+\input{sections/01b_related_work}
+\input{sections/02_methodology}
+\input{sections/03_experimental_setup}
+\input{sections/04_results}
+\input{sections/05_discussion}
+\input{sections/06_conclusion}
+
+\appendix
+\input{sections/07_appendix}
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}

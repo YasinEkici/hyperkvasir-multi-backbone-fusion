@@ -354,3 +354,28 @@ and trace to a resolved config (provenance gate, CNN D-09 reused).
 - Validation: `uv run pytest tests/` → `297 passed` (2026-06-24); `backbones.py` /
   `vit_backbones.py` / configs untouched; final-model numbers unchanged; only small
   PNG committed, checkpoints gitignored.
+
+## 2026-06-24 - Sprint 5 Slice 4: LaTeX report
+
+- Scope: full academic-Turkish report under `reports/vit/` (project_plan §10 +
+  §11 checklist). Mirrors the CNN report template; cross-engine (`iftex`/`fontspec`)
+  so it builds on pdfLaTeX/Overleaf (target) and local `tectonic`.
+- Figures (inference-free, pooled OOF n=10662, leakage-free): new
+  `scripts/make_vit_report_figures.py` → `confusion_matrix.png`, `per_class_f1.png`,
+  `training_curves.png`, `cv_macrof1_bar.png` + `results/vit/tables/per_class_champion.{csv,md}`.
+- Files: `reports/vit/main.tex`, `sections/{01_introduction,01b_related_work,
+  02_methodology,03_experimental_setup,04_results,05_discussion,06_conclusion}.tex`,
+  `references.bib`, `.gitignore`. Architecture = TikZ.
+- Reference stubs: `references/methodology_evaluation/mcnemar_dietterich_1998/paper.md`,
+  `references/methodology_imbalance/logit_adjustment_menon_2020_iclr/paper.md`.
+- Build: `cd reports/vit && tectonic main.tex` → main.pdf (~1.2 MB). 0 undefined
+  citations, 0 undefined refs, 0 missing Turkish glyphs, 16 bibitems. Build
+  intermediates gitignored.
+- LaTeX gotcha logged: Turkish babel makes `=` an active shorthand, which breaks
+  `=` inside `\includegraphics[width=...]` and TikZ option lists →
+  `\AtBeginDocument{\shorthandoff{=}}` fixes it globally.
+- All numbers trace to `cv_fold5_ranked` / `metrics.json` / `predictions.npz`;
+  literature is contextual only (no SOTA claim, VLD-10); negatives honest (GMU/TTA/
+  seed-ens/logit-adj); McNemar significance reported.
+- Validation: `uv run pytest tests/` → `297 passed`; locked files / final-model
+  numbers untouched. Remaining: student names + YouTube link (Slice 5).

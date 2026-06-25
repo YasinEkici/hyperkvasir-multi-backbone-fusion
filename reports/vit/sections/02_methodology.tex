@@ -1,0 +1,144 @@
+\section{Yöntem}
+\label{sec:method}
+
+\subsection{Genel mimari}
+Önerilen model dört aşamadan oluşur: (1)~paralel ViT omurgalarıyla öznitelik
+çıkarımı, (2)~dal başına izdüşüm, (3)~füzyon ve (4)~MLP sınıflandırıcı.
+Şekil~\ref{fig:arch} bu akışı şematik olarak gösterir.
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[
+      >={Stealth[length=2.2mm]},
+      box/.style={draw, rounded corners, align=center, minimum height=0.95cm,
+                  minimum width=2.1cm, font=\small, inner sep=2pt},
+      bb/.style={box, fill=blue!8},
+      pr/.style={box, fill=green!8, minimum width=1.9cm},
+      fu/.style={box, fill=orange!14, minimum width=1.9cm},
+      cl/.style={box, fill=red!8},
+      io/.style={align=center, font=\small},
+      hdr/.style={font=\footnotesize\itshape, text=black!65, align=center},
+      dim/.style={font=\scriptsize, text=black!70, midway, above},
+      x=1cm, y=1cm]
+    % nodes (column x, row y)
+    \node[io] (img) at (0,0) {Görüntü\\$224{\times}224$};
+    \node[bb] (vit)  at (3,1.7)  {ViT-B/16\\768-d};
+    \node[bb] (swin) at (3,0)    {Swin-T\\768-d};
+    \node[bb] (beit) at (3,-1.7) {BEiT-B/16\\768-d};
+    \node[pr] (pv) at (5.9,1.7)  {İzdüşüm\\512-d};
+    \node[pr] (ps) at (5.9,0)    {İzdüşüm\\512-d};
+    \node[pr] (pb) at (5.9,-1.7) {İzdüşüm\\512-d};
+    \node[fu] (fus) at (8.7,0) {Ağırlıklı\\füzyon\\512-d};
+    \node[cl] (mlp) at (11.2,0) {MLP\\(256, dr.\ 0,3)};
+    \node[box, fill=gray!12] (out) at (13.7,0) {Softmax\\23 sınıf};
+    % stage headers
+    \node[hdr] at (3,2.95)   {Öznitelik çıkarımı\\(omurga)};
+    \node[hdr] at (5.9,2.95) {İzdüşüm};
+    \node[hdr] at (8.7,2.95) {Füzyon};
+    \node[hdr] at (12.45,2.95) {Sınıflandırma};
+    % input fan-out (same image to 3 backbones)
+    \draw[->] (img) -- (vit);
+    \draw[->] (img) -- (swin);
+    \draw[->] (img) -- (beit);
+    % backbone -> projection (768-d)
+    \draw[->] (vit) -- (pv);
+    \draw[->] (swin) -- (ps) node[dim]{768-d};
+    \draw[->] (beit) -- (pb);
+    % projection -> fusion fan-in (512-d)
+    \draw[->] (pv) -- (fus);
+    \draw[->] (ps) -- (fus) node[dim]{512-d};
+    \draw[->] (pb) -- (fus);
+    % fusion -> MLP -> output
+    \draw[->] (fus) -- (mlp) node[dim]{512-d};
+    \draw[->] (mlp) -- (out) node[dim]{23};
+  \end{tikzpicture}
+  \caption{Üçlü ViT füzyon mimarisi. Aynı $224{\times}224$ görüntü üç omurgaya
+  verilir; her omurga \texttt{timm} üzerinden \texttt{num\_classes=0} ile yüklenip
+  768 boyutlu havuzlanmış öznitelik üretir. Her dal 512 boyuta izdüşürülür,
+  ağırlıklı füzyonla birleştirilir ve tek bir MLP (gizli 256, dropout 0,3) ile 23
+  sınıfa sınıflandırılır. Omurgalar dondurulmuş öznitelik çıkarımı veya son
+  bloklarının ince ayarı ile kullanılır.}
+  \label{fig:arch}
+\end{figure}
+
+\subsection{Omurgalar ve öznitelik çıkarımı}
+Üç omurga, farklı tümevarımsal önyargılara ve ön-eğitim rejimlerine sahip olacak
+biçimde seçilmiştir. ViT~\cite{dosovitskiy2021vit} görüntüyü yamalara bölüp standart
+bir dönüştürücü kodlayıcıya verir; evrişimsel yerellik ve öteleme-değişmezlik
+önyargısı taşımadığından küresel öz-dikkatle uzun-erimli ilişkileri modeller, fakat
+güçlü temsil için büyük ölçekli ön-eğitime ihtiyaç duyar.
+Swin~\cite{liu2021swin} yamaları derin katmanlarda birleştirip kaydırmalı-pencere
+öz-dikkati kullanarak \emph{hiyerarşik} ve yerel-çok ölçekli temsiller üretir; bu,
+evrişime benzer bir yerellik önyargısını geri kazandırır ve doku ile sınır gibi
+yerel ipuçlarına duyarlıdır. BEiT~\cite{bao2022beit} ise maskeli görüntü
+modellemesiyle (yamaların bir bölümünü maskeleyip görsel belirteçleri geri kazanma)
+\emph{öz-denetimli} ön-eğitilir ve denetimli ViT'ten farklı bir temsil öğrenir. Bu
+üç ayrı önyargı, füzyon için tamamlayıcı sinyaller sağlar.
+
+Her omurga \texttt{timm} kütüphanesinden ImageNet üzerinde ön-eğitilmiş ağırlıklarla
+yüklenir. Sınıflandırma başlığı \texttt{num\_classes=0} ile kaldırılır ve mimariye
+uygun yerel havuzlanmış öznitelik vektörü ($\mathbb{R}^{768}$) elde edilir. Bu
+yaklaşım hem CLS-belirteçli (ViT, BEiT) hem de CLS-belirteçsiz (Swin, küresel
+ortalama havuzlama) mimarilerde doğru çalışır.
+
+\subsection{İzdüşüm, füzyon ve sınıflandırıcı}
+Bu aşamada her omurganın 768 boyutlu özniteliği ortak bir uzaya indirgenir, üç dal
+tek bir vektörde birleştirilir ve sonuç sabit bir sınıflandırıcıya verilir.
+
+\subsubsection{Dal izdüşümü}
+Her dalın özniteliği, ardışık \emph{Doğrusal $\to$ LayerNorm $\to$ GELU}
+katmanıyla 512 boyutlu ortak bir uzaya izdüşürülür.
+
+\subsubsection{Füzyon yöntemleri}
+Üç füzyon yöntemi uygulanmıştır:
+\begin{itemize}
+  \item \textbf{Birleştirme:} dal öznitelikleri uç uca eklenir ($N{\times}512$).
+  \item \textbf{Ağırlıklı:} öğrenilen skaler ağırlıklarla normalize toplam (512).
+  \item \textbf{GMU:} her dala öğrenilen \emph{öğe bazında} (per-feature) kapılarla
+        ağırlık veren kapılı füzyon~\cite{arevalo2017gmu}. İki dal için bu, özgün
+        makalenin $h = z \odot h_v + (1-z)\odot h_t$ biçimine \emph{tam olarak}
+        indirgenir.
+\end{itemize}
+İzdüşürülmüş dal öznitelikleri $h_i \in \mathbb{R}^{512}$ ($i = 1,\dots,N$) için
+füzyon işlemleri şöyle tanımlanır:
+\begin{align}
+  \text{Birleştirme:}\quad & f = [\,h_1;\, h_2;\, \dots;\, h_N\,] \in \mathbb{R}^{N\cdot 512}, \\
+  \text{Ağırlıklı:}\quad & \alpha = \mathrm{softmax}(w),\qquad f = \sum_{i=1}^{N} \alpha_i\, h_i, \\
+  \text{GMU:}\quad & z = \mathrm{softmax}_{\text{dal}}\!\big(W_z\,[h_1;\dots;h_N]\big),\qquad
+                     f = \sum_{i=1}^{N} z_i \odot h_i.
+\end{align}
+Ağırlıklı füzyonda $w \in \mathbb{R}^{N}$ öğrenilen skaler ağırlıklardır ($\alpha_i$
+skalerdir); GMU'da $z_i \in \mathbb{R}^{512}$ öğe-bazında kapılardır ve dal ekseninde
+normalize edilir, dolayısıyla her öznitelik boyutu için ayrı ağırlıklandırma yapılır.
+İki dal durumunda GMU, $f = z \odot h_1 + (1-z) \odot h_2$ biçimine indirgenir.
+
+\subsubsection{Sınıflandırıcı}
+Füzyon çıktısı tek bir MLP'ye ($256$ gizli birim, dropout $0{,}3$) verilir.
+Tüm yapılandırmalarda sınıflandırıcı sabittir.
+
+\subsection{Transfer öğrenme rejimleri}
+İki rejim karşılaştırılmıştır: (i)~\emph{dondurulmuş} öznitelik çıkarımı (omurga
+ağırlıkları sabit, yalnızca izdüşüm + füzyon + MLP eğitilir) ve (ii)~\emph{ince
+ayar}: ViT/BEiT'te son üç dönüştürücü bloğu, Swin'de son aşama açılır; ayrıca son
+normalizasyon katmanı eğitilir. Yalnız son blokların açılması bilinçli bir tercihtir:
+küçük ve dengesiz bir veri kümesinde tüm ağı açmak, ImageNet ön-eğitiminde edinilen
+genel öznitelikleri bozabilecek felakete-varan unutmaya (catastrophic forgetting)
+yol açar; buna karşılık son bloklar göreve/alana özgü olduğundan uç (endoskopi)
+alanına uyarlanmaya en uygun katmanlardır. Aynı gerekçeyle ince ayar, katman bazında
+azalan öğrenme oranı (LLRD) ile uygulanır~\cite{howard2018ulmfit}: çıkışa yakın
+katmanlar daha yüksek, gövdeye yakın (daha genel) katmanlar daha düşük öğrenme
+oranıyla güncellenir, böylece genel temsiller korunurken üst katmanlar alana uyarlanır.
+
+\subsection{Yorumlanabilirlik ve istatistiksel analiz}
+Nihai model için (a)~CLS-belirteçli ViT-B ve BEiT-B dallarında \emph{dikkat
+yayılımı}~\cite{abnar2020rollout}: ham dikkat, derin katmanlarda belirteç kimliğini
+yitirdiğinden tek başına güvenilir bir açıklama vermez; kalıntı bağlantılarını
+hesaba katmak için her katmanda $A = 0{,}5\,W_\text{att} + 0{,}5\,I$ alınır (birim
+matris kalıntı yolunu temsil eder), katmanlar boyunca özyinelemeli çarpılır ve CLS
+satırı $14{\times}14$ ızgaraya eşlenir; (b)~üç dalda
+\emph{Grad-CAM++}~\cite{chattopadhyay2018gradcampp};
+(c)~512 boyutlu füzyon öznitelikleri üzerinde \emph{UMAP}~\cite{mcinnes2018umap}
+görselleştirmesi; (d)~eşli \emph{McNemar} testi~\cite{dietterich1998mcnemar} ve
+(e)~son-işlem \emph{logit düzeltmesi}~\cite{menon2020logitadjust} uygulanmıştır.
+Tüm bu çözümlemeler, eğitilmiş kontrol noktalarından \emph{yalnızca çıkarım}
+yoluyla üretilmiş ve nihai modeli değiştirmemiştir.

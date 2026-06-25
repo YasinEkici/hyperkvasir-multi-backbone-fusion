@@ -1,0 +1,43 @@
+\section{Giriş}
+\label{sec:intro}
+
+Gastrointestinal (GI) endoskopi görüntülerinin otomatik sınıflandırılması,
+tarama ve tanı süreçlerinde uzman iş yükünü azaltma potansiyeli taşıyan bir
+bilgisayarlı görü problemidir. Bu çalışmada, halka açık \textbf{HiperKvasir}
+veri kümesinin 23 sınıflı etiketli alt kümesi üzerinde, anatomik dönüm
+noktaları, patolojik bulgular ve tedavi/aletsel durumları kapsayan çok sınıflı
+bir sınıflandırma görevi ele alınmaktadır~\cite{borgli2020hyperkvasir}. Veri
+kümesinin başlıca zorluğu, sınıf dağılımının \emph{aşırı dengesiz} olmasıdır:
+bazı sınıflar binlerce görüntüye sahipken, bazı nadir sınıflar yalnızca onlu
+sayılarda örnek içerir.
+
+Önerilen yaklaşım, tek bir omurga yerine \emph{birden çok görüntü dönüştürücü
+(Vision Transformer, ViT)} omurgasını özellik çıkarıcı olarak kullanıp bunların
+özniteliklerini birleştiren bir özellik füzyonu mimarisidir. Üç farklı tümleyici
+omurga seçilmiştir: saf yerel-olmayan dikkat temelli \textbf{ViT-B/16}, hiyerarşik
+kaydırmalı-pencere temelli \textbf{Swin-T} ve maskeli görüntü modellemesiyle
+öz-denetimli ön-eğitilmiş \textbf{BEiT-B/16}. Bu üçlü; küresel öz-dikkat (ViT),
+hiyerarşik yerel-çok ölçekli temsil (Swin) ve öz-denetimli ön-eğitim (BEiT) gibi
+farklı tümdengelimsel önyargıları bir araya getirir; böylece tek bir mimari ailesine
+bağlı kalmadan tamamlayıcı temsiller öğrenmeyi amaçlar.
+
+Çalışmanın karşılaştırma eksenleri üç düzeydedir: (i)~\emph{omurga düzeyinde}
+(tekli/ikili/üçlü kombinasyonlar), (ii)~\emph{füzyon düzeyinde} (birleştirme,
+ağırlıklı ve kapılı GMU füzyonu) ve (iii)~\emph{transfer öğrenme düzeyinde}
+(dondurulmuş öznitelik çıkarımı ile son blokların ince ayarı). Sınıflandırıcı
+tüm yapılandırmalarda sabit tutulmuştur (tek bir MLP); dolayısıyla
+sınıflandırıcı-düzeyinde bir karşılaştırma \emph{yapılmamıştır}, böylece
+gözlemlenen tüm farklar omurga, füzyon ve transfer seçimlerine atfedilebilir.
+
+Ana katkı ve bulgular şu şekilde özetlenebilir:
+\begin{itemize}
+  \item Üç ViT omurgasının ağırlıklı füzyonu, resmi 5-katlı protokolde en iyi
+        makro-F1 değerini vermiştir; bu yapılandırma eşli McNemar testinde en iyi
+        tekli omurgadan ve en iyi ikili füzyondan anlamlı biçimde daha doğrudur.
+  \item Gelişmiş kapılı füzyon (GMU), ağırlıklı füzyona kıyasla bir kazanım
+        sağlamamıştır.
+  \item Modelin başarısı, dengesizlik nedeniyle bir tavana ulaşmıştır: yüksek
+        doğruluk (\%88) ile daha düşük makro-F1 ($\approx 0{,}61$) arasındaki fark,
+        nadir sınıfların başarımı sınırladığını açıkça gösterir. Bu olgu, dikkat
+        haritaları, Grad-CAM++ ve UMAP görselleştirmeleriyle de desteklenmiştir.
+\end{itemize}

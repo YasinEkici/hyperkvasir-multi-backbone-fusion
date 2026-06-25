@@ -1,0 +1,49 @@
+\section{İlgili Çalışmalar}
+\label{sec:related}
+
+\paragraph{Görüntü dönüştürücüleri.} ViT~\cite{dosovitskiy2021vit}, görüntüyü
+yamalara bölüp bir dönüştürücü kodlayıcıya besleyerek evrişimsel önyargı olmadan
+küresel bağımlılıkları modeller. Swin~\cite{liu2021swin} hiyerarşik ve kaydırmalı
+pencere dikkatiyle hesaplama maliyetini düşürürken çok ölçekli temsiller üretir.
+BEiT~\cite{bao2022beit} ise maskeli görüntü modellemesiyle öz-denetimli ön-eğitim
+kullanır. Bu üç omurga farklı tümevarımsal önyargılara ve ön-eğitim rejimlerine
+sahip olduğundan, füzyon için tamamlayıcı adaylardır.
+
+\paragraph{Çok kaynaklı özellik füzyonu.} Birden çok omurganın özniteliklerini
+birleştirmenin en yaygın yolları doğrudan \emph{birleştirme} (concatenation) ve
+\emph{ağırlıklı} toplamadır. Daha gelişmiş bir seçenek, her modaliteye/dala
+öğrenilen kapılarla ağırlık veren \emph{Kapılı Çok Modlu Birim}
+(GMU)'dir~\cite{arevalo2017gmu}. Öznitelik füzyonu tıbbi görüntülerde de etkin
+kullanılmıştır: GI endoskopide CNN özniteliklerinin birleştirilip ayrı bir
+sınıflandırıcıyla değerlendirilmesi~\cite{ahmed2023hybridfusion} ve çok ölçekli
+temsiller için uyarlanır çok-dikkatli hiyerarşik füzyon~\cite{he2025hemf}
+önerilmiştir. Bu çalışmada birleştirme, ağırlıklı ve GMU yöntemlerinin üçü de
+uygulanmış ve karşılaştırılmıştır.
+
+\paragraph{HiperKvasir ve GI endoskopi sınıflandırması.} HiperKvasir, GI
+endoskopi için geniş, çok sınıflı ve halka açık bir referans veri
+kümesidir~\cite{borgli2020hyperkvasir}. Dönüştürücü temelli yaklaşımlar arasında
+hiyerarşik kaydırmalı-pencere ViT~\cite{wang2023hswvit} ve önceden eğitilmiş ViT
+toplulukları~\cite{gastrovit2025} yer alır; verimli karışım
+yöntemleri~\cite{ramamurthy2022effimix} de yüksek toplu doğruluklar bildirir.
+CNN ve dönüştürücü temsillerini birleştiren melez modeller, endoskopi ve
+video-kapsül görüntülerinde umut verici sonuçlar vermiş~\cite{subedi2024cnnswin};
+kaynak-kısıtlı ortamlar için MobileViT gibi hafif dönüştürücüler ise F1 ile model
+boyutu arasındaki dengeyi araştırmıştır~\cite{varam2024edgevit}. HiperKvasir'in
+geniş etiketsiz alt kümesinden yararlanan müfredat temelli öz-denetimli ön-eğitim de
+GI sınıflandırmasında raporlanmıştır~\cite{guo2024curriculumssl}; bu yaklaşım,
+BEiT'in öz-denetimli ön-eğitim çizgisiyle örtüşür. Bu çalışmalar genellikle farklı
+bölme protokolleri, farklı veri kümeleri veya sınıf alt kümeleri kullandığından
+doğrudan sayısal kıyas yanıltıcıdır; ilgili sonuçlar Bölüm~\ref{sec:results}'te
+\emph{bağlamsal} olarak ele alınır.
+
+\paragraph{Yorumlanabilirlik.} Dönüştürücülerde karar gerekçelerini görmek için
+\emph{dikkat yayılımı} (attention rollout)~\cite{abnar2020rollout}, kalıntı
+bağlantıları hesaba katarak katmanlar arası dikkat akışını yaklaşıklar.
+Grad-CAM++~\cite{chattopadhyay2018gradcampp} (ve temeli
+Grad-CAM~\cite{selvaraju2017gradcam}), gradyan tabanlı sınıfa özgü ısı haritaları
+üretir. Öznitelik uzayının yapısını incelemek için boyut indirgeme yöntemi
+UMAP~\cite{mcinnes2018umap} kullanılmıştır. Model karşılaştırmalarının
+istatistiksel anlamlılığı için eşli McNemar testi~\cite{dietterich1998mcnemar},
+dengesizlik için ise son-işlem logit düzeltmesi~\cite{menon2020logitadjust} ele
+alınmıştır.

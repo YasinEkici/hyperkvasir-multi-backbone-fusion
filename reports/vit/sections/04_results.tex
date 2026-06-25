@@ -1,0 +1,286 @@
+\section{Sonuçlar}
+\label{sec:results}
+
+\subsection{Dondurulmuş eleme ve transfer kazanımı}
+Tüm tekli/ikili/üçlü yapılandırmalar önce 0.~katta dondurulmuş rejimde
+sıralanmıştır. Dondurulmuş rejimde en güçlü \emph{tekli} omurga Swin-T
+(makro-F1 $0{,}576$), en güçlü \emph{üçlü} ise ağırlıklı füzyon ($0{,}565$)
+olmuştur; tek başına BEiT-B en zayıf omurgadır ($0{,}522$). Son blokların ince
+ayarı, eleme adayı her yapılandırmada makro-F1'i artırmıştır
+(Tablo~\ref{tab:transfer}); en büyük kazanım ikili ve üçlü füzyon
+yapılandırmalarında görülmüştür. Bu, küçük veri rejiminde bile son dönüştürücü
+bloklarının uç (endoskopi) alanına uyarlanmasının değerli olduğunu gösterir.
+Tablo~\ref{tab:frozen} tüm yapılandırmaların dondurulmuş sıralamasını verir.
+
+\begin{table}[H]
+  \centering
+  \caption{0.~kat dondurulmuş eleme sıralaması (makro-F1'e göre).
+  V=ViT-B, S=Swin-T, B=BEiT-B.}
+  \label{tab:frozen}
+  \begin{tabular}{cllcc}
+    \toprule
+    \# & Omurga & Füzyon & Doğruluk & Makro-F1 \\
+    \midrule
+    1  & S     & yok      & $0{,}8704$ & $0{,}5760$ \\
+    2  & V+S+B & weighted & $0{,}8511$ & $0{,}5649$ \\
+    3  & S+B   & weighted & $0{,}8779$ & $0{,}5648$ \\
+    4  & V+S   & concat   & $0{,}8803$ & $0{,}5618$ \\
+    5  & V+B   & concat   & $0{,}8539$ & $0{,}5613$ \\
+    6  & S+B   & concat   & $0{,}8657$ & $0{,}5598$ \\
+    7  & V+S   & weighted & $0{,}8695$ & $0{,}5580$ \\
+    8  & V     & yok      & $0{,}8417$ & $0{,}5576$ \\
+    9  & V+B   & weighted & $0{,}8582$ & $0{,}5530$ \\
+    10 & V+S+B & concat   & $0{,}8520$ & $0{,}5517$ \\
+    11 & B     & yok      & $0{,}8318$ & $0{,}5215$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{0.~kat dondurulmuş $\to$ ince ayar makro-F1 farkları (ince ayar $-$
+  dondurulmuş).}
+  \label{tab:transfer}
+  \begin{tabular}{llcc}
+    \toprule
+    Yapılandırma & Füzyon & $\Delta$Doğruluk & $\Delta$Makro-F1 \\
+    \midrule
+    Swin-T (tek)        & yok       & $+0{,}007$ & $+0{,}016$ \\
+    V+S birleştirme     & concat    & $-0{,}011$ & $+0{,}011$ \\
+    V+B birleştirme     & concat    & $+0{,}012$ & $+0{,}017$ \\
+    S+B ağırlıklı       & weighted  & $-0{,}007$ & $+0{,}026$ \\
+    V+S+B ağırlıklı     & weighted  & $+0{,}028$ & $+0{,}020$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+İnce ayarın yakınsama hızı ve göreli maliyeti Tablo~\ref{tab:cost}'ta verilmiştir.
+Her iki rejim de en iyi doğrulama makro-F1'ine birkaç epoch içinde ulaşır;
+dondurulmuş rejim daha hızlıdır ve A100 gerektirmez. İnce ayarın ek maliyeti,
+verimlilik ayarıyla (TF32, bfloat16, veri yükleyici paralelliği) yaklaşık
+$5{,}3$--$5{,}9\times$ azaltılarak bütçe içinde tutulmuştur.
+
+\begin{table}[H]
+  \centering
+  \caption{Transfer maliyeti: en iyi doğrulama epoch'u (yakınsama hızı) ve ayarlı
+  A100 verim kazancı. Eğitim süresi loglanmadığından maliyet, yakınsama epoch'u ve
+  göreli verimle ifade edilir.}
+  \label{tab:cost}
+  \begin{tabular}{lccc}
+    \toprule
+    Yapılandırma & Dondurulmuş (en iyi epoch) & İnce ayar (en iyi epoch)
+      & Ayarlı verim kazancı \\
+    \midrule
+    Swin-T (tek) & 4 & 6 & $\sim\!5{,}3\times$ \\
+    V+S+B        & 4 & 6 & $\sim\!5{,}9\times$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{5-katlı çapraz doğrulama}
+Seçilen en iyi dört yapılandırma tam 5-katlı çapraz doğrulamada
+değerlendirilmiştir (Tablo~\ref{tab:cv}, Şekil~\ref{fig:cvbar}). \textbf{Üç
+omurganın ağırlıklı füzyonu} ($\text{V+S+B}$), $0{,}6094 \pm 0{,}0254$ ortalama
+ve $0{,}6119$ havuzlanmış makro-F1 (\%95 GA $[0{,}5930,\,0{,}6295]$) ile en iyi
+yapılandırmadır ve nihai model olarak seçilmiştir. En iyi tekli omurga
+(Swin-T, havuzlanmış $0{,}5985$) ve en iyi ikili füzyon (S+B ağırlıklı,
+$0{,}5893$) bunu izler. Füzyonun katkısı Bölüm~\ref{sec:discussion}'da
+istatistiksel olarak da incelenmiştir.
+
+\begin{table}[H]
+  \centering
+  \caption{5-katlı CV sıralaması (makro-F1 ortalamasına göre). Önyükleme \%95 GA,
+  ayrık OOF test tahminleri üzerinden.}
+  \label{tab:cv}
+  \begin{tabular}{llcccc}
+    \toprule
+    Yapılandırma & Füzyon & Doğruluk (ort$\pm$std) & Makro-F1 (ort$\pm$std)
+      & Makro-F1 havuz [\%95 GA] \\
+    \midrule
+    \textbf{V+S+B} & \textbf{weighted} & $0{,}8780\pm0{,}0140$
+      & $\mathbf{0{,}6094\pm0{,}0254}$ & $\mathbf{0{,}6119\;[0{,}5930,\,0{,}6295]}$ \\
+    Swin-T (tek)   & yok      & $0{,}8679\pm0{,}0097$ & $0{,}5969\pm0{,}0261$
+      & $0{,}5985\;[0{,}5806,\,0{,}6152]$ \\
+    S+B            & weighted & $0{,}8652\pm0{,}0058$ & $0{,}5879\pm0{,}0111$
+      & $0{,}5893\;[0{,}5736,\,0{,}6054]$ \\
+    V+B            & concat   & $0{,}8454\pm0{,}0084$ & $0{,}5727\pm0{,}0149$
+      & $0{,}5753\;[0{,}5638,\,0{,}5863]$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\linewidth]{cv_macrof1_bar.png}
+  \caption{Seçili yapılandırmaların 5-katlı makro-F1 değerleri (ortalama $\pm$
+  standart sapma). Üçlü ağırlıklı füzyon en yüksek ortalamaya sahiptir.}
+  \label{fig:cvbar}
+\end{figure}
+
+\subsection{Nihai modelin ayrıntılı çözümlemesi}
+Nihai modeli (fold 0) daha yakından inceliyoruz: önce eğitim dinamiği, ardından
+havuzlanmış karışıklık matrisi ile sınıf bazında başarım ele alınır.
+
+\subsubsection{Eğitim dinamiği}
+Şekil~\ref{fig:curves} nihai modelin (0.~kat) eğitim eğrilerini gösterir; eğitim
+kaybı düzenli azalırken doğrulama makro-F1'i erken bir epoch'ta tepe yapar ve
+erken durdurma devreye girer.
+
+\subsubsection{Karışıklık matrisi ve sınıf bazında başarım}
+Şekil~\ref{fig:cm} havuzlanmış OOF karışıklık
+matrisidir. Yaygın sınıflar çok yüksek köşegen değerlerine sahiptir
+(ör.\ \texttt{normal-pylorus} $0{,}99$, \texttt{retroflex-stomach} $0{,}99$,
+\texttt{impacted-stool} $0{,}99$), buna karşılık hataların büyük kısmı
+\emph{anlamsal/anatomik olarak komşu} sınıflar arasında yoğunlaşır: ülseratif
+kolit dereceleri birbirine karışır, \texttt{hemorroids} büyük ölçüde
+\texttt{retroflex-rectum} olarak tahmin edilir ve \texttt{oesophagitis-a}
+\texttt{normal-z-line} ile karışır.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}{0.48\linewidth}
+    \includegraphics[width=\linewidth]{training_curves.png}
+    \caption{Eğitim eğrileri (0.~kat).}
+    \label{fig:curves}
+  \end{subfigure}\hfill
+  \begin{subfigure}{0.48\linewidth}
+    \includegraphics[width=\linewidth]{per_class_f1.png}
+    \caption{Sınıf bazında F1 (renk = destek).}
+    \label{fig:pcf1}
+  \end{subfigure}
+  \caption{Nihai modelin eğitim dinamikleri ve sınıf bazında başarımı. Düşük
+  destekli sınıflar düşük F1 ile güçlü biçimde ilişkilidir.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.92\linewidth]{confusion_matrix.png}
+  \caption{Nihai modelin havuzlanmış ($n=10{.}662$) OOF karışıklık matrisi
+  (satır-normalize). Hatalar büyük ölçüde anatomik/ordinal komşu sınıflar
+  arasındadır.}
+  \label{fig:cm}
+\end{figure}
+
+Sınıf bazında metrikler (Tablo~\ref{tab:perclass}) bu tabloyu nicelleştirir:
+yüksek destekli sınıflarda F1 $\approx 0{,}97$--$0{,}99$ iken, en düşük destekli
+sınıflarda (\texttt{hemorroids}: 6, \texttt{ulcerative-colitis-grade-1-2}: 11)
+F1 sıfıra kadar düşer.
+
+Havuzlanmış OOF üzerinde, ana ölçüt makro-F1'in ($0{,}612$) yanında destekleyici
+toplu ölçütler de hesaplanmıştır: doğruluk $0{,}878$ (tek-etiketli çok-sınıfta
+mikro-F1'e eşittir), ağırlıklı F1 $0{,}879$ ve Matthews korelasyon katsayısı
+(MCC) $0{,}868$. Makro-F1 ile bu toplu ölçütler arasındaki belirgin açık,
+dengesizliğin etkisini bir kez daha ortaya koyar; MCC ($0{,}868$), veri kümesi
+makalesinin en iyi CNN temelinin ($0{,}899$) biraz altında olmakla birlikte aynı
+bütünsel uyum bandındadır.
+
+\begin{table}[H]
+  \centering
+  \caption{Nihai model: en düşük ve en yüksek F1'li altı sınıf (havuzlanmış OOF).}
+  \label{tab:perclass}
+  \begin{tabular}{lccc}
+    \toprule
+    Sınıf & Kesinlik & Duyarlılık & F1 (Destek) \\
+    \midrule
+    hemorroids                     & $0{,}00$ & $0{,}00$ & $0{,}00$ (6) \\
+    ulcerative-colitis-grade-1-2   & $0{,}00$ & $0{,}00$ & $0{,}00$ (11) \\
+    ulcerative-colitis-grade-2-3   & $0{,}05$ & $0{,}07$ & $0{,}06$ (28) \\
+    \midrule
+    bbps-0-1                       & $0{,}98$ & $0{,}97$ & $0{,}98$ (646) \\
+    normal-pylorus                 & $0{,}98$ & $0{,}99$ & $0{,}98$ (999) \\
+    retroflex-stomach              & $0{,}99$ & $0{,}99$ & $0{,}99$ (764) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Toplamsal teknikler ve istatistiksel anlamlılık}
+\label{sec:addons}
+Nihai model üzerinde denenen toplamsal, sızıntısız teknikler
+Tablo~\ref{tab:addons}'da özetlenmiştir. Test zamanı veri artırma (TTA) ve
+sızıntısız seed topluluğu makro-F1'i güven aralığı düzeyinde ayırt edilebilir
+biçimde artırmamıştır. Son-işlem logit düzeltmesi~\cite{menon2020logitadjust}
+ise makro-F1'i \emph{düşürmüştür} (Şekil~\ref{fig:logit}): düzeltme gücü $\tau$
+arttıkça başarım tekdüze azalır. Bunun nedeni, modelin zaten dengeli örnekleyici
+ile eğitilmiş olması ve örtük önselin yaklaşık tekdüze olmasıdır; eğitim önselini
+çıkarmak \emph{ikinci kez} düzeltme yaparak nadir sınıflara aşırı kayma getirir.
+
+Buna karşılık, eşli \textbf{McNemar} testi~\cite{dietterich1998mcnemar}
+($n=10{.}662$), üçlü füzyonun en iyi tekli omurgadan ($\chi^2_{cc}=15{,}25$,
+$p=9{,}2\times10^{-5}$) ve en iyi ikili füzyondan ($\chi^2_{cc}=25{,}25$,
+$p=4{,}7\times10^{-7}$) \emph{anlamlı biçimde daha doğru} olduğunu göstermiştir.
+Bu, doğruluk düzeyinde bir testtir; makro-F1 güven aralıklarının kısmen
+örtüşmesiyle çelişmez, onu tamamlar: füzyon genel olarak anlamlı sayıda doğru
+tahmin ekler, ancak makro-F1 kazancı nadir sınıflarca sınırlanır.
+
+\begin{table}[H]
+  \centering
+  \caption{Nihai model üzerinde toplamsal teknikler (havuzlanmış OOF makro-F1).
+  Hiçbiri nihai modeli değiştirmez; tümü sızıntısızdır.}
+  \label{tab:addons}
+  \begin{tabular}{lcc}
+    \toprule
+    Teknik & Havuz makro-F1 & Not \\
+    \midrule
+    Temel (nihai model)        & $0{,}6119$ & headline \\
+    Seed topluluğu             & $0{,}6157$ & GA örtüşür (anlamsız) \\
+    TTA                        & $-$ & GA düzeyinde kazanım yok \\
+    Logit düzeltmesi ($\tau{=}1$) & $0{,}4911$ & düşürür (aşırı düzeltme) \\
+    GMU füzyonu (üçlü, 0.~kat) & $0{,}5525$ & ağırlıklının altında \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.5\linewidth]{logit_adjust_tau.png}
+  \caption{Son-işlem logit düzeltmesi duyarlılık eğrisi: makro-F1, düzeltme gücü
+  $\tau$ ile tekdüze azalır.}
+  \label{fig:logit}
+\end{figure}
+
+\subsection{Literatürle bağlamsal karşılaştırma}
+Sonuçları literatürle konumlandırırken iki noktayı ayrı ele alıyoruz: çalışmalar
+arasındaki protokol/ölçüt farkları ve bu farkların metrik yorumuna etkisi.
+
+\subsubsection{Protokol ve ölçüt farkları}
+Literatürdeki HiperKvasir çalışmaları farklı bölme protokolleri ve farklı ölçüt
+tanımları kullandığından, sayılar doğrudan değil \emph{bağlamsal} ele alınmalıdır.
+Çalışmaların çoğu doğruluk veya genel/ağırlıklı F1 raporlar; sızıntıya karşı
+denetlenmiş bir makro-F1 seyrek verilir. Veri kümesini tanıtan
+çalışma~\cite{borgli2020hyperkvasir} bir istisnadır: iki-bölme ortalamasıyla
+\emph{makro-ortalama} F1 raporladığından ölçüt türü bizimkiyle aynıdır, fakat bölme
+protokolü farklıdır. GastroViT~\cite{gastrovit2025} bizimle aynı 23 sınıflı alt
+kümeyi kullanır ancak topluluk ve farklı bölme ile çalışır; EffiMix~\cite{ramamurthy2022effimix}
+ve HSW-ViT~\cite{wang2023hswvit} de farklı bölmelerde sonuç verir.
+
+\begin{table}[H]
+  \centering
+  \footnotesize
+  \caption{HiperKvasir bağlamsal konumlandırma (protokoller farklı; doğrudan kıyas
+  değil). ``$-$'': karşılaştırılabilir makro-F1 bildirilmemiş. $^{\dagger}$Borgli'nin
+  doğruluğu mikro-F1 olarak verilmiştir (tek-etiketli çok-sınıfta mikro-F1, doğruluğa
+  eşittir).}
+  \label{tab:context}
+  \begin{tabularx}{\linewidth}{@{}l X l c c l@{}}
+    \toprule
+    Çalışma & Yöntem & Protokol & Doğ. & Makro-F1 & Diğer \\
+    \midrule
+    Bu çalışma & ViT füzyonu (V+S+B) & resmi 5-katlı + GA & $\approx$0,88 & \textbf{0,612} & MCC 0,868 \\
+    Borgli 2020~\cite{borgli2020hyperkvasir} & CNN (DenseNet-161) & 2-bölme ort. & 0,907$^{\dagger}$ & 0,619 & MCC 0,899 \\
+    GastroViT 2025~\cite{gastrovit2025} & ViT topluluğu & kendi bölmesi & 0,920 & $-$ & $-$ \\
+    HSW-ViT 2023~\cite{wang2023hswvit} & HSW-ViT & kendi bölmesi & 0,868 & $-$ & $-$ \\
+    EffiMix 2022~\cite{ramamurthy2022effimix} & karışım & kendi bölmesi & 0,980 & $-$ & ağ.\ F1 0,97 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsubsection{Metrik konumlandırma}
+Makro-F1 ölçütünde sonucumuz ($0{,}612$), veri kümesi makalesinin CNN temel
+sonuçlarının bandındadır (makro-F1 $0{,}605$–$0{,}619$); bu, üç ViT omurgasının
+füzyonunun güçlü CNN temellerine yakın bir makro başarım sağladığını bağlamsal
+olarak gösterir. Yüksek doğruluk değerleri (EffiMix $\approx$\%98, GastroViT
+$\approx$\%92), farklı protokollerden ve dengesizlik altında iyimser olan
+toplu/ağırlıklı ölçütlerden kaynaklanır; nitekim Borgli'de de makro-F1 ($\approx
+0{,}62$) ile mikro-F1/doğruluk ($\approx 0{,}91$) arasındaki açık, bu raporda
+gözlenen açıkla aynı dengesizlik olgusunu yansıtır. Bu nedenle güncel-en-iyi bir
+başarı iddiasında bulunulmamış; konum bağlamsal olarak sunulmuştur.

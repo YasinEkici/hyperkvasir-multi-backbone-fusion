@@ -1,0 +1,79 @@
+\section{Deneyler}
+\label{sec:setup}
+
+\subsection{Veri kümesi ve bölme protokolü}
+HiperKvasir'in 23 sınıflı etiketli alt kümesi kullanılmıştır ($n = 10{.}662$
+görüntü). Değerlendirme, veri kümesiyle birlikte sağlanan \emph{resmi 5-katlı}
+bölme üzerinden yürütülmüştür. Her katın kendi tutulan (held-out) test bölümü
+vardır ve beş kat ayrıktır; bu nedenle birleştirilmiş (havuzlanmış) tahminler
+tüm veri kümesini tam olarak bir kez kapsar. Sızıntıyı önlemek için \emph{kat
+modelleri asla makro-F1 hesabından önce ortalanmaz}; tüm güven aralıkları, ayrık
+kat-dışı (OOF) test tahminlerinden tekrar örnekleyerek makro-F1 dağılımını kestiren
+önyükleme (bootstrap) yöntemiyle hesaplanır.
+
+\subsection{Ön işleme}
+Görüntüler ImageNet ortalaması/standart sapmasıyla normalize edilir; en kısa
+kenar 256'ya ölçeklenip eğitimde rastgele, değerlendirmede merkez $224\times224$
+kırpma uygulanır. Yeniden boyutlandırma, \texttt{timm} ViT ağırlıklarıyla
+tutarlı olacak şekilde \emph{bikübik} aradeğerleme ile yapılır.
+
+\subsection{Eğitim reçetesi}
+İnce ayar reçetesi şu bileşenleri içerir: AdamW
+eniyileyici~\cite{loshchilov2019adamw} (omurga öğrenme oranı $5\times10^{-5}$,
+başlık $10^{-3}$, ağırlık sönümü $0{,}05$), katman bazında azalan öğrenme oranı
+(LLRD, $0{,}7$), 5 epoch ısınma ile kosinüs zamanlayıcı, stokastik derinlik
+(drop-path $0{,}05$), etiket yumuşatma $0{,}1$, hafif MixUp ($0{,}2$; küçük
+lezyonları silmemek için CutMix kapalı), üstel hareketli ortalama (EMA, $0{,}9998$)
+ve dengesizlik için ağırlıklı örnekleyici (sınıf frekansının tersiyle örnekleme
+yaparak nadir sınıfları daha sık görünür kılan WeightedRandomSampler). Yığın boyutu
+32, en fazla 60 epoch, doğrulama makro-F1 üzerinde erken durdurma. Tek bir model
+ailesinin önyargısını azaltmak için ViT-B/BEiT-B'de son üç blok, Swin'de son
+aşama açılmıştır. Bu düzenleyici bileşenlerden stokastik derinlik (drop-path),
+eğitimde bazı katmanları rastgele atlayarak aşırı uyumu sınırlar; MixUp, örnek
+çiftlerini ve etiketlerini doğrusal harmanlayarak karar sınırlarını yumuşatır;
+etiket yumuşatma, hedef dağılımı tek-sıcak yerine biraz yumuşatarak aşırı güveni
+azaltır; EMA ise model ağırlıklarının üstel hareketli ortalamasını tutarak
+değerlendirmede daha kararlı bir model sağlar. Tablo~\ref{tab:hparams} ince ayar
+hiperparametrelerini özetler.
+
+\begin{table}[H]
+  \centering
+  \caption{İnce ayar hiperparametreleri.}
+  \label{tab:hparams}
+  \begin{tabular}{ll}
+    \toprule
+    Hiperparametre & Değer \\
+    \midrule
+    Eniyileyici & AdamW \\
+    Omurga öğrenme oranı & $5\times10^{-5}$ \\
+    Başlık öğrenme oranı & $10^{-3}$ \\
+    Katman bazında azalım (LLRD) & $0{,}7$ \\
+    Ağırlık sönümü & $0{,}05$ \\
+    Zamanlayıcı & kosinüs, 5 epoch ısınma \\
+    Stokastik derinlik (drop-path) & $0{,}05$ \\
+    Etiket yumuşatma & $0{,}1$ \\
+    MixUp / CutMix & $0{,}2$ / kapalı \\
+    EMA sönümü & $0{,}9998$ \\
+    Yığın boyutu & 32 \\
+    Açılan katmanlar & ViT-B/BEiT-B son 3 blok; Swin son aşama \\
+    Epoch (maks.) / erken durdurma & 60 / sabır 8 \\
+    Görüntü / normalizasyon & $224{\times}224$, ImageNet, bikübik \\
+    Karışık hassasiyet & bfloat16 + TF32 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Hesaplama ve verimlilik}
+İnce ayar koşuları Google Colab Pro A100 üzerinde yürütülmüştür. Veri yükleyici
+paralelliği, TF32 ve bfloat16 otomatik hassasiyet ile cuDNN otomatik ayarı
+etkinleştirildiğinde, A100 verimi temel yapılandırmaya göre yaklaşık
+$5{,}3\times$ (tekli) -- $5{,}9\times$ (üçlü) artmıştır; üreme
+(reproducibility) yaklaşıktır (seed'ler sabit tutulmuştur). Dondurulmuş eleme
+koşuları ise A100 dışında çalıştırılarak hesaplama bütçesi korunmuştur.
+
+\subsection{Ölçütler}
+Ana ölçüt \emph{makro-F1}'dir; doğruluk, makro kesinlik/duyarlılık, sınıf bazında
+metrikler ve karışıklık matrisi destekleyici olarak raporlanır. Eleme aşaması
+yalnızca 0.~katta, seçilen en iyi dört yapılandırma ise tam 5-katlı çapraz
+doğrulamada değerlendirilmiştir; bu huni, hesaplama bütçesini korur. Bildirilen
+tüm sayılar, her kat için kaydedilen değerlendirme çıktılarından üretilmiştir.

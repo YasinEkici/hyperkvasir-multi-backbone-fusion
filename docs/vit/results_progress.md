@@ -327,3 +327,186 @@ Both additive, inference-only, leakage-free (VLD-13/VLD-20); champion unchanged.
   `scripts/stats_mcnemar.py`; helpers + 8 tests in `interpret_common`/`test_interpret`.
 - Validation: `uv run pytest tests/` → 297 passed; locked files / final-model
   numbers unchanged; no large artifacts.
+
+### Slice 4 — LaTeX report
+- Full report under `reports/vit/` (`main.tex` + 7 `sections/*.tex` + `references.bib`),
+  academic Turkish, mirroring the CNN report template (pdfLaTeX/Overleaf; also
+  cross-engine via `iftex`/`fontspec` so local `tectonic` renders Turkish glyphs).
+  Structure follows project_plan §10 (Giriş/Yöntem/Deneyler/Sonuçlar/Tartışma/Sonuç).
+- Missing §5.4 figures generated inference-free by `scripts/make_vit_report_figures.py`
+  (pooled OOF, n=10662, leakage-free): `confusion_matrix.png`, `per_class_f1.png`,
+  `training_curves.png`, `cv_macrof1_bar.png`, plus table
+  `results/vit/tables/per_class_champion.{csv,md}`. Architecture diagram = TikZ.
+- Content: 5-fold CV table (champion 0.6119 pooled), frozen→finetune deltas,
+  pooled confusion matrix (rare/ordinal confusion: UC grades, hemorroids→retroflex-
+  rectum), per-class table (rare classes F1→0), interpretability (rollout/Grad-CAM++/
+  UMAP), honest negatives (GMU, TTA, seed-ens CI-overlap, logit-adj), McNemar
+  significance, contextual comparator table (Wang/GastroViT/EffiMix — no SOTA claim).
+- Reference stubs created for the previously-empty citations:
+  `references/methodology_evaluation/mcnemar_dietterich_1998/paper.md` and
+  `references/methodology_imbalance/logit_adjustment_menon_2020_iclr/paper.md`.
+- Compiles clean with `tectonic`: 0 undefined citations, 0 undefined refs, 0 missing
+  Turkish glyphs, 16 bibitems; `main.pdf` ~1.2 MB. LaTeX build intermediates
+  gitignored (`reports/vit/.gitignore`).
+- Validation: `uv run pytest tests/` → 297 passed; `backbones.py`/`vit_backbones.py`/
+  configs/final-model numbers untouched; every reported number traces to
+  `cv_fold5_ranked` / `metrics.json` / `predictions.npz` (no invention).
+- TODO (for submission): student names/numbers + YouTube link in the report (Slice 5).
+
+### Report corrections — Slice A (style & rules) — done
+- Audit-driven style pass (`docs/vit/report_corrections_plan.md`, Slice A). Removed
+  from the report BODY: repo paths (5), self-referential "dürüst negatif" wording (4),
+  decorative em dashes (`---`, now `yok`/`$-$`/punctuation). Numbers/results unchanged.
+- Quick check clean: no "yalnızca…değil", no "Günümüzde"/"önemli bir yer tut", 0
+  decorative em dashes. `tectonic main.tex` → 0 undefined cites/refs, 0 missing
+  Turkish glyphs. Slices B–E remain open.
+
+### Report corrections — Slice B (required tables + training time) — done
+- Added the 2 missing §10 tables and a hyperparameter table, all from existing data
+  (no new runs): frozen ablation ranking (11 rows), fine-tune hyperparameters, and a
+  transfer-cost table (best-validation epoch + tuned ~5.3×/5.9× throughput). The §5.5
+  "ne kadar sürmüş" question is now answered via convergence epochs + throughput.
+- Wall-clock time is not logged in metrics.json/epoch_log.jsonl; cost is therefore
+  expressed via epochs-to-best (from history) + the documented speedup — no fabricated
+  minutes. Report now has all 4 required tables (frozen ablation, 5-fold CV+CI,
+  per-class, transfer/time). `tectonic` clean (0 undefined cites/refs, 0 missing glyph).
+
+### Report corrections — Slice C (literature depth + citation integrity) — done
+- Created the 2 missing reference stubs (`gradcam_selvaraju_2017`,
+  `ulmfit_howard_2018_acl`) so every cited key has a non-empty stub (§11).
+- Deepened Related Work with Subedi 2024 (CNN-Transformer hybrid) and Varam 2024
+  (lightweight/edge ViTs), contextual (Kvasir-Capsule, different dataset);
+  `references.bib` extended.
+- Verified comparator numbers against the paper stubs: GastroViT is on the SAME
+  HyperKvasir 23-class set (~92% acc, ensemble, different split); EffiMix ~98% acc
+  (weighted F1). Competitors' macro-F1 column set to "$-$" (none report a directly
+  comparable leakage-free macro-F1). Ramachandran 2025 dropped (no paper.md stub).
+- `tectonic` clean (0 undefined cites/refs, 0 missing glyph); no SOTA claim.
+
+### Report corrections — Slice D (method rigor + evidence) — done
+- Added fusion equations (concat / weighted = softmax(w) scalar / GMU element-wise)
+  to the Methodology — faithful to weighted.py / gmu.py.
+- Added an appendix (`07_appendix.tex`, `\appendix` in main.tex): full 23-class
+  per-class P/R/F1/support table (from per_class_champion) and an extra
+  interpretability gallery (rollout `normal-pylorus` + Grad-CAM++ `hemorroids`),
+  using two previously-unused panels.
+- `tectonic` clean (0 undefined cites/refs, 0 missing glyph); PDF ~1.8 MB. Numbers
+  unchanged. Remaining corrections: Slice E (student names + video link, user-side).
+
+### Report depth — Slice F (methodology depth) — done
+- Deepened the Methodology (write-up only, no result change): backbone inductive
+  biases (ViT global/minimal-bias, Swin hierarchical shifted-window locality, BEiT
+  masked-image self-supervised) grounded in their papers; transfer rationale
+  (catastrophic forgetting → last-blocks-only + LLRD); one-line definitions of the
+  rollout residual term and drop-path/MixUp/label-smoothing/EMA. No new citations
+  (5 stubs already cited). Methodology 516→713 words. `tectonic` clean. Tracked in
+  docs/vit/report_depth_plan.md (Slices F–I).
+
+### Report depth — Slice G (discussion expansion) — done
+- Added two Discussion subsections (write-up only, existing evidence): "Hata analizi
+  ve sınıf karışmaları" (ordinal UC-grade + anatomical hemorroids→retroflex-rectum /
+  oesophagitis-a→normal-z-line confusions, from the existing confusion matrix /
+  per-class table) and "Dengesizliğin makro-F1 üzerindeki etkisi" (balanced-error /
+  Menon + focal loss / Lin 2017; weighted sampler described without a citation).
+  Discussion 583→878 words, 5→7 subsections.
+- Stub-integrity caught: class_balanced_loss_cui_2019 stub holds the WRONG paper
+  (Ahmed 2023) and weighted_random_sampler has no paper.md → neither cited (only the
+  verified Focal Loss added to references.bib). `tectonic` clean; no new numbers.
+
+### Report depth — Slice H (related-work literature grounding) — done
+- Added 3 verified GI works to Related Work (faithful paraphrase, bib entries):
+  Ahmed 2023 (GI feature fusion), He 2025 (HEMF multi-attention fusion), Guo 2024
+  (curriculum self-supervised learning on HyperKvasir — ties to BEiT). Related Work
+  now engages 9 distinct GI/comparator works. 248→299 words. `tectonic` clean; no
+  SOTA. Only Slice I (intro/conclusion + term defs) remains in the depth plan.
+
+### Report depth — Slice I (intro/conclusion + term definitions) — done
+- Grounded the three-backbone choice in the Introduction (complementary biases:
+  global / hierarchical-local / self-supervised); added a focal-loss citation
+  (Lin 2017) to the Conclusion's future-work; defined the weighted sampler
+  (inverse-frequency sampling) and bootstrap CI in one line each in Experiments.
+  No new citation (focal already in bib). `tectonic` clean; numbers unchanged.
+- **All depth slices F–I complete.** The report write-up is deepened end-to-end
+  (Methodology +197 words, Discussion +295 words / 2 new subsections, Related Work
+  +3 GI works, intro/conclusion grounded); every claim traces to existing
+  evidence or a verified literature stub; no `\TODO` remains; PDF ~1.8 MB.
+
+### Report depth — Slice J (richer literature metric comparison) — done
+- Rebuilt tab:context as a 6-column contextual table (Çalışma/Yöntem/Protokol/
+  Doğruluk/Makro-F1/Diğer) with the dataset paper as a **macro-F1 anchor**: Borgli
+  2020 best macro-F1 0.619 (micro 0.907, MCC 0.899) — same metric type as ours,
+  different split. Competitors keep "$-$" for macro-F1 (GastroViT 0.920 acc, Wang
+  0.868 acc, EffiMix 0.980 acc / weighted-F1 0.97 note) — no fabricated macro-F1.
+  Added two \subsubsections (protocol/metric differences + metric positioning):
+  our 0.612 sits in Borgli's CNN baseline band (0.605–0.619); high-accuracy numbers
+  stem from different protocols + aggregate/weighted metrics. All numbers verified
+  from paper.md; no SOTA. `tectonic` clean; 04_results 1176→1317 words.
+
+### Report depth — Slice J-2 (supporting metrics MCC + weighted-F1) — done
+- Derived from the existing pooled OOF predictions (n=10662, inference-free): accuracy
+  0.878 (= micro-F1), weighted-F1 0.879, MCC 0.868; macro-F1 0.6119 cross-check
+  confirms correct pooling. Added MCC 0.868 to our tab:context row (same axis as
+  Borgli's MCC 0.899) and a supporting-metrics paragraph in §5.4 (macro-F1 stays the
+  headline; CI only on macro-F1). Honest note: our MCC is slightly below Borgli's but
+  in the same band. No fabricated numbers; `tectonic` clean; 04_results 1317→1378 words.
+
+### Report depth — Slice K (strengths/limitations deepened) — done
+- Split Discussion §"Güçlü ve zayıf yönler" into \subsubsection{Güçlü yönler} and
+  \subsubsection{Sınırlamalar}, each point mapped to existing evidence (McNemar,
+  tab:context Borgli band + MCC, tab:cv CI, interpretability figures, tab:addons /
+  fig:logit negatives, tab:cost throughput; limitations: tab:perclass rare-class F1=0,
+  ordinal/anatomical confusion, CI-overlapping gain, BEiT/GMU, approximate repro,
+  single dataset). No new numbers; all \ref resolve. Discussion 878→1068 words;
+  `tectonic` clean.
+
+### Report depth — Slice L (\subsubsection granularity) — done
+- Re-nested existing prose into \subsubsections (no new content/numbers): Methodology
+  §projection-fusion-classifier → 3 (Dal izdüşümü / Füzyon yöntemleri / Sınıflandırıcı);
+  Results §detailed analysis → 2 (Eğitim dinamiği / Karışıklık matrisi ve sınıf bazında
+  başarım); Discussion §interpretability → 2 (Dikkat ve Grad-CAM++ / Öznitelik uzayı
+  (UMAP)). All labels/cross-references intact; `tectonic` clean.
+- **All depth slices F–L complete.** The report now has deeper structure end-to-end
+  (backbone biases, transfer rationale, error analysis, imbalance subsection,
+  evidence-mapped strengths/limitations, enriched contextual comparison with a macro-F1
+  anchor + MCC, and \subsubsection nesting across Methodology/Results/Discussion).
+  Every claim traces to existing evidence or a verified stub; no `\TODO`; PDF ~1.8 MB.
+
+### Report — architecture diagram (fig:arch) improved
+- Fixed a real bug: the MLP node read `MLP\\[256]`, where `\\[256]` is a 256pt line
+  break → a giant empty box. Now `MLP\\(256, dr. 0,3)`.
+- Rewrote the TikZ (coordinate-based): symmetric input fan-out (same 224×224 image →
+  3 backbones), symmetric projection→fusion fan-in, stage headers (Öznitelik çıkarımı
+  / İzdüşüm / Füzyon / Sınıflandırma), dimension labels on arrows (768→512→512→23),
+  clearer node texts (768-d / 512-d / Softmax 23 sınıf), and a caption note on the
+  transfer regimes. No new packages; `tectonic` clean. Architecture/dimensions
+  unchanged (write-up/figure only).
+
+### Report — subsection bridge sentences
+- Every \subsection that jumped straight into a \subsubsection now has a 1–2 sentence
+  lead-in summarizing what the subsection covers (5 places: Methodology
+  projection-fusion-classifier, Results detailed-analysis + literature-comparison,
+  Discussion interpretability + strengths/limitations). Scan confirms 0 bridgeless
+  subsections remain. Write-up only; `tectonic` clean.
+
+### Report depth — Slice M (controlled CNN vs ViT comparison) — done
+- Added Discussion §"Aynı protokol altında CNN füzyonu ile karşılaştırma" (tab:cnnvit):
+  the apples-to-apples comparison the monorepo was designed for (same dataset, official
+  5-fold, leakage-free OOF+CI, same concat/weighted/GMU+MLP framework; only the backbone
+  family differs). CNN numbers verified this turn from docs/FINAL_MODEL.md — CNN final
+  (triple weighted + TTA): macro-F1 0.6075 [0.5860,0.6296], acc 0.8765, MCC 0.8662; CNN
+  base-CE 0.6000 (within the ViT CI). ViT (base): 0.6119 / 0.8779 / 0.868. Honest reading:
+  statistically comparable (CI overlap), both bounded by the same rare-class ceiling →
+  the limit is data scarcity, not the backbone family; shared negatives (focal/TTA/seed);
+  cross-project directions (transformer backbones + attention/Grad-CAM++ realised here).
+  No SOTA; methodological framing (no repo paths / VLD-PLD ids / sprint-week wording in
+  body). Also cleaned `---` in the architecture-diagram TikZ comments. 05_discussion
+  1068→1367 words; `tectonic` clean.
+
+### Report corrections — Slice E (submission/final) — report side done
+- Title page set to a single author (Yasin Ekici, no 21360859029) with the GitHub
+  repo link on the cover and in the Conclusion
+  (github.com/YasinEkici/hyperkvasir-multi-backbone-fusion); removed the report's
+  YouTube `\TODO` (the video goes in the repo README, not the report body).
+- No real `\TODO` remains in the report. `tectonic` clean. All agent-fixable report
+  corrections (Slices A–E report side) are complete. Pending (user): record the
+  Sprint 5 demo video and add its link to the README.

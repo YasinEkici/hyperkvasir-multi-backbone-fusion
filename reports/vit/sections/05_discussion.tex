@@ -1,0 +1,216 @@
+\section{Tartışma}
+\label{sec:discussion}
+
+\subsection{Hangi omurga daha iyi öznitelik öğrendi?}
+Dondurulmuş rejimde tek başına en güçlü omurga \textbf{Swin-T} olmuştur
+(makro-F1 $0{,}576$); bu, hiyerarşik kaydırmalı-pencere yapısının yerel doku ve
+çok ölçekli ipuçlarını (endoskopi görüntülerinde ayırt edici olan mukoza dokusu,
+damarlanma ve lezyon sınırları) iyi yakaladığını düşündürür. Saf
+ViT-B orta düzeyde, tek başına BEiT-B ise en zayıf omurgadır ($0{,}522$). Bu
+sıralama, öznitelik uzayının UMAP görselleştirmesinde de görülür
+(Şekil~\ref{fig:umapbranches}): ViT-B ve Swin-T izdüşümleri daha ayrık kümeler
+oluştururken, BEiT-B dağılımı daha iç içedir. Bununla birlikte BEiT-B,
+\emph{tamamlayıcı} bir sinyal taşıdığı için füzyonda yine de değerlidir; tek
+başına zayıf olması, füzyondaki katkısını dışlamaz. Bu sıralama dondurulmuş eleme
+tablosuyla (Tablo~\ref{tab:frozen}) tutarlıdır: Swin'in yerel-çok ölçekli önyargısı
+endoskopinin doku ve sınır ipuçlarıyla uyumludur, ViT'in küresel öz-dikkati ve
+BEiT'in öz-denetimli temsili ise farklı yönlerden katkı sağlayarak füzyonun en güçlü
+tekil omurganın üzerine çıkmasını mümkün kılar.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\linewidth]{umap_branches.png}
+  \caption{Dal başına izdüşürülmüş 512 boyutlu özniteliklerin UMAP'i (OOF test).
+  ViT-B ve Swin-T daha ayrık kümeler verir; BEiT-B daha dağınıktır.}
+  \label{fig:umapbranches}
+\end{figure}
+
+\subsection{Füzyon işe yaradı mı?}
+Evet, ancak sınırlı ölçüde. Üçlü ağırlıklı füzyon, en iyi tekli omurgaya kıyasla
+hem ortalama hem havuzlanmış makro-F1'de önde olup
+(Tablo~\ref{tab:cv}) eşli McNemar testinde \emph{istatistiksel olarak anlamlı}
+biçimde daha doğrudur (Bölüm~\ref{sec:addons}). Yani çok-omurga füzyonu, genel
+doğruluğa anlamlı bir katkı sağlar. Buna karşılık makro-F1 güven aralıkları
+kısmen örtüşür; çünkü füzyonun eklediği doğru tahminler ağırlıklı olarak zaten
+iyi sınıflandırılan yaygın sınıflardadır ve makro-F1, nadir sınıflarca
+sınırlanır. \emph{Ağırlıklı} füzyon, \emph{birleştirmeden} daha iyi sonuç
+vermiştir; bunun nedeni, birleştirmenin boyutu büyütüp daha fazla parametre
+gerektirmesi ve küçük veri rejiminde aşırı uyuma daha açık olmasıdır. Gelişmiş
+kapılı füzyon (GMU), özgün makaleye sadık öğe-bazında kapı uygulanmasına rağmen
+ağırlıklı füzyonu geçememiştir (üçlü GMU $0{,}5525$); bu da daha karmaşık
+füzyonun bu veri ölçeğinde ek kazanım getirmediğini gösterir.
+
+\subsection{Hangi transfer yaklaşımı kazandı?}
+Son blokların ince ayarı, her eleme adayında dondurulmuş rejimi geçmiştir
+(Tablo~\ref{tab:transfer}). Bu beklenen bir sonuçtur: ImageNet ön-eğitimli
+öznitelikler genel olsa da, son dönüştürücü bloklarının endoskopi alanına
+uyarlanması ayırt ediciliği artırır. Süre açısından ince ayar, en iyi doğrulama
+makro-F1'ine erken ulaşır (üçlü yapılandırmada 6.\ epoch; Tablo~\ref{tab:cost}),
+dolayısıyla eğitim birkaç epoch içinde yakınsar. Dondurulmuş rejim daha hızlıdır
+ve A100 gerektirmez; ince ayarın ek maliyeti ise verimlilik ayarlamalarıyla
+(TF32, bfloat16, veri yükleyici paralelliği) yaklaşık $5$--$6\times$ azaltılarak
+bütçe içinde tutulmuştur. Dengesizliği ele almak için \emph{ağırlıklı örnekleyici} doğru
+mekanizma olmuştur; son-işlem logit düzeltmesinin başarımı düşürmesi
+(Şekil~\ref{fig:logit}), örnekleyicinin dengesizliği zaten ele aldığını ve ek bir
+önsel düzeltmesinin gereksiz/zararlı olduğunu doğrular.
+
+\subsection{Yorumlanabilirlik: model neye bakıyor?}
+Modelin karar gerekçelerini iki açıdan inceliyoruz: girdi üzerindeki dikkat ve
+aktivasyon haritaları ile füzyon öznitelik uzayının yapısı.
+
+\subsubsection{Dikkat ve Grad-CAM++}
+Dikkat yayılımı ve Grad-CAM++ haritaları, doğru sınıflandırılan örneklerde
+modelin \emph{klinik olarak anlamlı} bölgelere odaklandığını göstermektedir
+(Şekil~\ref{fig:interp}). Örneğin retroflex konumundaki örneklerde model,
+endoskobun retrofleksiyon bölgesine; pilor görüntülerinde ise pilor halkasına
+yoğunlaşır. Hatalı örneklerde ise odak dağınıklaşır veya komşu yapıya kayar; bu,
+karışıklık matrisindeki ordinal/anatomik karışmalarla tutarlıdır.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}{0.48\linewidth}
+    \includegraphics[width=\linewidth]{rollout_retroflex-stomach.png}
+    \caption{Dikkat yayılımı (doğru sınıf).}
+  \end{subfigure}\hfill
+  \begin{subfigure}{0.48\linewidth}
+    \includegraphics[width=\linewidth]{gradcam_ulcerative-colitis-grade-2-3.png}
+    \caption{Grad-CAM++ (nadir sınıf, hata içeren panel).}
+  \end{subfigure}
+  \caption{Yorumlanabilirlik örnekleri. Doğru örneklerde odak klinik bölgededir;
+  nadir/karışan sınıflarda odak dağılır. Swin dalının Grad-CAM++ haritası
+  hiyerarşik pencere yerleşimi nedeniyle daha kaba ($7{\times}7$) olduğundan ilgili
+  panelde dipnotla işaretlenmiştir.}
+  \label{fig:interp}
+\end{figure}
+
+\subsubsection{Öznitelik uzayı (UMAP)}
+Öznitelik uzayının füzyon sonrası UMAP'i (Şekil~\ref{fig:umapfused}), yaygın
+sınıfların belirgin biçimde ayrıştığını, buna karşılık ülseratif kolit
+derecelerinin iç içe geçtiğini gösterir; bu, makro-F1 tavanının doğrudan görsel
+kanıtıdır.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\linewidth]{umap_fused.png}
+  \caption{Füzyon öznitelikleri UMAP'i (OOF test, 23 sınıf). Ayrık kümeler =
+  kolay sınıflar; iç içe bölge = karışan nadir sınıflar (ör.\ kolit dereceleri).}
+  \label{fig:umapfused}
+\end{figure}
+
+\subsection{Hata analizi ve sınıf karışmaları}
+Karışıklık matrisi (Şekil~\ref{fig:cm}) ve sınıf bazında metrikler, hataların
+rastgele dağılmadığını, büyük ölçüde \emph{anlamsal veya anatomik olarak komşu}
+sınıflar arasında yoğunlaştığını gösterir. İlk hata türü \emph{ordinal} şiddet
+karışmasıdır: ülseratif kolit dereceleri bitişik derecelere karışır; örneğin
+grade-1-2 ve grade-2-3 gibi ara dereceler büyük ölçüde komşu tam dereceler olarak
+tahmin edilir. Bu, derecelerin görsel olarak süreklilik göstermesi ve ara sınıfların
+çok düşük destekli olmasının birleşik sonucudur. İkinci hata türü \emph{anatomik}
+benzerliktir: \texttt{hemorroids} örnekleri ağırlıklı olarak \texttt{retroflex-rectum},
+\texttt{oesophagitis-a} ise \texttt{normal-z-line} olarak sınıflandırılır; bu sınıf
+çiftleri aynı anatomik bölgeyi paylaşır ve görünüm olarak yakındır. Buna karşılık
+belirgin ve yüksek destekli sınıflar (\texttt{normal-pylorus},
+\texttt{retroflex-stomach}, \texttt{impacted-stool}) köşegende neredeyse hatasızdır.
+Klinik açıdan bu hatalar büyük ölçüde ``yakın'' hatalardır; tamamen ilgisiz sınıflara
+kayma seyrektir.
+
+\subsection{Dengesizliğin makro-F1 üzerindeki etkisi}
+Makro-F1 her sınıfa eşit ağırlık verdiğinden, çok düşük destekli nadir sınıflardaki
+düşük başarım, yüksek genel doğruluğa rağmen makro-F1'i belirgin biçimde aşağı çeker;
+doğruluk (\%88) ile makro-F1 ($\approx 0{,}61$) arasındaki açık bunun doğrudan
+ölçüsüdür. Bu davranış dengeli-hata bakış açısıyla tutarlıdır: dengesiz dağılımda
+çoğunluk sınıfları toplu ölçütleri iyimser kılar~\cite{menon2020logitadjust}.
+Dengesizliği ele almanın standart kaldıraçları arasında, iyi sınıflandırılan
+örneklerin kaybını azaltıp zor ve nadir örneklere odaklanan odak kaybı
+(focal loss)~\cite{lin2017focal} ve nadir sınıfları yeniden örnekleyen sınıf-dengeli
+örnekleme bulunur. Bu çalışmada eğitimde ters-frekanslı ağırlıklı örnekleyici
+kullanılmış, ayrıca son-işlem logit düzeltmesi denenmiştir. Logit düzeltmesinin
+başarımı düşürmesi (Bölüm~\ref{sec:addons}), örnekleyicinin dengesizliği zaten ele
+aldığını ve modelin örtük önselinin yaklaşık tekdüze olduğunu gösterir. Nadir
+sınıflardaki temel sınır ise bir model değil veri kıtlığı sorunudur: bazı sınıfların
+onlu sayılarda örneği vardır ve hiçbir kayıp ya da örnekleme düzenlemesi eksik veriyi
+telafi edemez.
+
+\subsection{Aynı protokol altında CNN füzyonu ile karşılaştırma}
+\label{sec:cnnvit}
+Aynı veri kümesi, aynı resmi 5-katlı protokol, sızıntıya karşı denetlenmiş OOF
+değerlendirme ve aynı füzyon çerçevesi (birleştirme/ağırlıklı/GMU + MLP) altında
+eğitilen CNN-omurgalı bir füzyon modeli, doğrudan ve kontrollü bir karşılaştırma
+olanağı sağlar; yalnız omurga ailesi değişir (CNN: ResNet-50 + MobileNetV2 +
+EfficientNet-B0). Tablo~\ref{tab:cnnvit} iki ailenin nihai modellerini karşılaştırır.
+
+\begin{table}[H]
+  \centering
+  \caption{Kontrollü karşılaştırma: aynı veri kümesi, protokol ve füzyon çerçevesi
+  altında CNN-omurgalı ve ViT-omurgalı füzyon (havuzlanmış OOF, $n=10{.}662$; makro-F1
+  ana ölçüt). Reçete: ViT temel (TTA kazanç vermedi), CNN test zamanı veri artırmalı.}
+  \label{tab:cnnvit}
+  \begin{tabular}{llccc}
+    \toprule
+    Aile (omurgalar) & Reçete & Makro-F1 & Doğruluk & MCC \\
+    \midrule
+    ViT (ViT-B + Swin-T + BEiT-B) & temel & \textbf{0,6119} & 0,8779 & 0,868 \\
+    CNN (ResNet-50 + MobileNetV2 + EfficientNet-B0) & +TTA & 0,6075 & 0,8765 & 0,866 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+İki aile istatistiksel olarak \emph{denktir}: makro-F1 güven aralıkları örtüşür,
+doğruluk ve MCC değerleri neredeyse aynıdır. Aynı temel (TTA'sız) reçete altında bile
+CNN füzyonunun makro-F1'i ($0{,}600$), ViT füzyonunun güven aralığı içinde kalır.
+Dolayısıyla bir aile diğerine belirgin bir üstünlük sağlamaz; her ikisi de aynı
+nadir-sınıf tavanına ulaşır. Bu bulgu, başarımı sınırlayan etkenin omurga ailesi
+değil, düşük destekli sınıflardaki veri kıtlığı olduğunu güçlü biçimde destekler.
+
+Bu ortak tavan, yöntemden bağımsız sonuçlarla da tutarlıdır: odak kaybı, test zamanı
+veri artırma ve seed topluluğu gibi toplamsal teknikler her iki ailede de en iyi
+çapraz-entropi yapılandırmasını güven aralığı düzeyinde geçememiştir. Yöntemsel olarak
+bu çalışma, CNN-omurgalı füzyonun açık bıraktığı yönleri ele alır: dönüştürücü
+omurgalar ile dikkat yayılımı ve Grad-CAM++ temelli yorumlanabilirlik burada
+uygulanırken, iki ailede de kazanç sağlamayan teknikler bir kenara bırakılmıştır.
+
+\subsection{Güçlü ve zayıf yönler}
+Çalışmanın katkılarını ve sınırlarını, her birini mevcut bulgulara bağlayarak iki
+başlık altında topluyoruz.
+
+\subsubsection{Güçlü yönler}
+\begin{itemize}
+  \item \textbf{Anlamlı füzyon kazancı.} Üç tamamlayıcı ViT omurgasının ağırlıklı
+        füzyonu, en iyi tekli omurgadan ve en iyi ikiliden eşli McNemar testinde
+        istatistiksel olarak anlamlı biçimde daha doğrudur (Bölüm~\ref{sec:addons});
+        ortalama ve havuzlanmış makro-F1'de de öndedir (Tablo~\ref{tab:cv}).
+  \item \textbf{Temel-bandı makro başarım.} Makro-F1 ($0{,}612$) ve MCC ($0{,}868$),
+        veri kümesi makalesinin CNN temellerinin bandındadır (Tablo~\ref{tab:context});
+        bu, çok-ViT füzyonunun güçlü CNN temellerine yakın bir makro başarım sağladığını
+        bağlamsal olarak gösterir.
+  \item \textbf{Titiz değerlendirme.} Sızıntıya karşı denetlenmiş resmi 5-katlı
+        protokol ve önyükleme \%95 güven aralıkları, sonuçların güvenilirliğini
+        destekler (Tablo~\ref{tab:cv}).
+  \item \textbf{Yorumlanabilirlik.} Dikkat yayılımı ve Grad-CAM++ haritaları
+        kararların klinik bölgelerle ilişkili olduğunu, UMAP ise sınıf ayrışmasını
+        gösterir (Şekil~\ref{fig:interp}, \ref{fig:umapfused}).
+  \item \textbf{Dürüst ve eksiksiz analiz.} Kazanç sağlamayan teknikler (GMU, TTA,
+        seed topluluğu, logit düzeltmesi) gizlenmeden raporlanmıştır
+        (Tablo~\ref{tab:addons}, Şekil~\ref{fig:logit}).
+  \item \textbf{Verimlilik.} İnce ayar maliyeti, verimlilik ayarıyla yaklaşık
+        $5$--$6\times$ azaltılarak bütçe içinde tutulmuştur (Tablo~\ref{tab:cost}).
+\end{itemize}
+
+\subsubsection{Sınırlamalar}
+\begin{itemize}
+  \item \textbf{Nadir-sınıf tavanı.} Çok düşük destekli sınıflarda (ör.\
+        \texttt{hemorroids}: 6, \texttt{ulcerative-colitis-grade-1-2}: 11) F1 sıfıra
+        iner (Tablo~\ref{tab:perclass}); bu bir model değil \emph{veri kıtlığı}
+        sınırıdır ve makro-F1'i belirleyen ana etkendir.
+  \item \textbf{Sınırlı makro-F1 kazancı.} Füzyonun katkısı doğruluk düzeyinde
+        anlamlı olsa da, makro-F1 güven aralıkları kısmen örtüşür; kazanç ağırlıklı
+        olarak zaten iyi sınıflandırılan yaygın sınıflardan gelir.
+  \item \textbf{Klinik olarak ``yakın'' hatalar.} Hatalar büyük ölçüde ordinal
+        (kolit dereceleri) veya anatomik (\texttt{hemorroids}$\to$\texttt{retroflex-rectum})
+        komşu sınıflar arasındadır.
+  \item \textbf{Mimari sınırları.} Tek başına BEiT en zayıf omurgadır ve daha karmaşık
+        kapılı füzyon (GMU) ağırlıklı füzyona ek kazanç getirmemiştir.
+  \item \textbf{Yaklaşık üreme.} Ayarlı bfloat16/TF32 yolu, yalnızca çok düşük marjlı
+        örneklerde nadir argmax değişimlerine yol açan yaklaşık bir üreme sağlar.
+  \item \textbf{Tek veri kümesi.} Değerlendirme tek bir veri kümesi ve tek bölme
+        protokolüyle sınırlıdır; klinik ya da dış doğrulama yapılmamıştır.
+\end{itemize}
