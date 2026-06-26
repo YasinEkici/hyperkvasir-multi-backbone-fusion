@@ -21,15 +21,35 @@ güven aralığı düzeyinde ayırt edilebilir bir iyileşme getirmemiştir; bu,
 bu protokolde tavanına ulaştığını gösterir.
 
 \paragraph{Sınırlamalar ve gelecek çalışmalar.} Temel sınırlama, çok düşük
-destekli nadir sınıflardan kaynaklanan bir veri kıtlığıdır. Gelecekte;
-(a)~ordinal yapıyı (ör.\ kolit dereceleri) açıkça modelleyen sıralı
-sınıflandırma kayıpları, (b)~nadir sınıflar için hedefli veri toplama, üretici
-artırma veya odak kaybı gibi dengesizlik-duyarlı kayıplar~\cite{lin2017focal}, ve
-(c)~klinik açıdan ``yakın'' hataları ayrıştıracak ince taneli ayrım öğrenme
-yaklaşımları umut verici yönlerdir. Bildirilen sayıların tümü
-kaydedilen değerlendirme çıktılarına dayanır; literatür karşılaştırmaları
-protokol farkları nedeniyle bağlamsaldır ve güncel-en-iyi bir başarı iddiasında
-bulunulmamıştır.
+destekli nadir sınıflardan (ör.\ \texttt{hemorroids}, \texttt{ileum},
+\texttt{ulcerative-colitis-grade-1-2}; destek $\leq 11$) kaynaklanan bir veri
+kıtlığıdır ve makro-F1 tavanını belirler. Bu sınırı ele almak için dört yön umut
+vericidir.
+
+\begin{itemize}
+  \item \textbf{Veri-merkezli çözümler.} Nadir sınıflar için hedefli veri
+        toplama/etiketleme, üretici (difüzyon/GAN) artırma ve sınıf-dengeli
+        kayıplar ile temsilin ve sınıflandırıcının ayrı eğitildiği iki-aşamalı
+        yaklaşımlar. Son-işlem logit düzeltmesi kazanç sağlamadığından,
+        eğitim-içi dengeleme daha umut vericidir~\cite{lin2017focal}.
+  \item \textbf{Kayıp ve hata yapısı.} Ülseratif kolit derecelerinin komşu
+        derecelere karışması, ordinal kayıpları; hemorroid ile retrofleks rektum
+        veya özofajit-a ile normal z-line gibi anatomik komşu çiftler ise
+        ince-taneli ayrım öğrenmeyi motive eder.
+  \item \textbf{Mimari ve verimlilik.} GMU'nun ek kazanç sağlamaması, belirteç
+        düzeyinde veya çapraz-dikkatli füzyonları gündeme getirir; üç omurganın
+        yaklaşık 200 milyon parametrelik maliyeti ise bilgi damıtımı ve
+        parametre-verimli ince ayar (adaptör/LoRA) yönlerini cazip kılar.
+  \item \textbf{Değerlendirme.} Makro-F1 güven aralıklarının kısmen örtüşmesi,
+        daha geniş seed toplulukları ve yapılandırmalar arası eşli istatistiksel
+        testlerle gücün artırılmasını; tek veri kümesi sınırı ise dış veri
+        kümelerinde (ör.\ kapsül endoskopi) doğrulamayı ve dikkat haritalarının
+        nicel sadakat ölçümünü gerektirir.
+\end{itemize}
+
+Bildirilen sayıların tümü kaydedilen değerlendirme çıktılarına dayanır; literatür
+karşılaştırmaları protokol farkları nedeniyle bağlamsaldır ve güncel-en-iyi bir
+başarı iddiasında bulunulmamıştır.
 
 \paragraph{Proje deposu.} Kaynak kod, eğitim çıktıları ve tanıtım videosu
 bağlantısı proje deposunda yer alır:

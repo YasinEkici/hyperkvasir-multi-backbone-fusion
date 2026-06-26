@@ -502,6 +502,28 @@ Both additive, inference-only, leakage-free (VLD-13/VLD-20); champion unchanged.
   body). Also cleaned `---` in the architecture-diagram TikZ comments. 05_discussion
   1068→1367 words; `tectonic` clean.
 
+### Report — future-work enriched (Conclusion)
+- Expanded the Conclusion's future-work from 3 brief clauses to 4 grounded directions
+  (itemized): data-centric for rare classes (class-balanced/two-stage; logit-adj failed
+  so in-training balancing), ordinal + fine-grained losses (UC-grade / anatomical
+  confusions), architecture & efficiency (cross-attention/token-level fusion; ~200M →
+  knowledge distillation + LoRA/adapter), and evaluation (wider seed ensembles + paired
+  tests for power; external-dataset validation; quantitative attention faithfulness).
+  Every direction ties to a documented finding; no fabricated numbers; cites focal
+  (Lin 2017). 06_conclusion 227→343 words; `tectonic` clean (0 undefined, 0 missing
+  glyph). Keeps report ↔ presentation future-work consistent.
+
+### Report depth — Slice M-2 (CNN-vs-ViT cross-project deepening) — done
+- Split §sec:cnnvit into a bridge + 3 \subsubsections: Metrik karşılaştırması (table +
+  comparable reading), Gerçekleştirilen yönelimler ve katkıları (transformer backbones
+  enable attention-rollout interpretability absent for CNNs + faithful element-wise GMU;
+  honest nuance: did NOT raise macro-F1, added analysis — Grad-CAM++/UMAP are shared, not
+  claimed as new), Geride bırakılan teknikler ve gerekçeleri (TTA/seed no CI-gain in
+  either family, focal did not beat CE in the CNN family, logit adjustment over-corrects
+  with the balanced sampler, GMU no added gain in either). Methodological framing (no
+  project-history/sprint wording); every claim traces to a documented result; no number
+  changed. §9 clean; 05_discussion 1367→1483 words; `tectonic` clean.
+
 ### Report corrections — Slice E (submission/final) — report side done
 - Title page set to a single author (Yasin Ekici, no 21360859029) with the GitHub
   repo link on the cover and in the Conclusion
@@ -510,3 +532,24 @@ Both additive, inference-only, leakage-free (VLD-13/VLD-20); champion unchanged.
 - No real `\TODO` remains in the report. `tectonic` clean. All agent-fixable report
   corrections (Slices A–E report side) are complete. Pending (user): record the
   Sprint 5 demo video and add its link to the README.
+
+### Report corrections — final validation pass — done
+- Targeted validation fixes only (write-up/table, no result/model change): `tab:cv`
+  now reports macro-P and macro-R alongside Acc, macro-F1, and pooled CI; `tab:addons`
+  now includes TTA `0.6105 [0.5920, 0.6280]` and softer seed-ensemble wording.
+- Softened unsupported overclaims: CNN-vs-ViT is no longer described as a formal
+  equivalence result, and interpretability/UMAP wording is framed as qualitative
+  support rather than direct clinical or proof-level evidence.
+- Numbers unchanged and still trace to `results/vit/tables/cv_fold5_ranked.md` and
+  Sprint 4/Sprint 5 logged outputs.
+
+### Report corrections — Related Work pass — done
+- Rebuilt `reports/vit/sections/01b_related_work.tex` into a structured related-work
+  section with four subsections: HyperKvasir/protocol context, ViT-family backbones,
+  multi-backbone feature fusion, and imbalance/evaluation/interpretability.
+- All new claims are contextual and tied to verified stubs or existing report evidence;
+  no model/result/metric changed and no SOTA claim was added. The UMAP stub path was
+  found to contain a different paper, so no new UMAP citation was introduced in this
+  pass.
+- `tectonic --keep-logs --keep-intermediates main.tex` completed cleanly after the
+  pass; the PDF was updated and the requested report-body grep checks were clean.

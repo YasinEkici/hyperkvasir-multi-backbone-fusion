@@ -339,6 +339,46 @@ headline; SOTA yok; temiz derleme. **Veri:** ✅ (CNN dokümante; doğrulanacak)
 
 ---
 
+## Slice M-2 — CNN vs ViT karşılaştırmasını alt başlıklara böl + çapraz-yönelimi derinleştir — ✅ TAMAM (2026-06-25)
+
+**Önem:** Major (deneysel analiz + tartışma derinliği).
+**Sonuç:** §"Aynı protokol altında CNN füzyonu ile karşılaştırma" köprü + 3
+`\subsubsection`'a bölündü: Metrik karşılaştırması (tab:cnnvit + denk okuması),
+Gerçekleştirilen yönelimler ve katkıları (dikkat yayılımı = transformer-only katkı;
+faithful GMU; dürüst nüans: makro-F1 yükselmedi, yorumlanabilirlik kattı —
+Grad-CAM++/UMAP paylaşılan olduğu için "yeni" diye sunulmadı), Geride bırakılan
+teknikler ve gerekçeleri (TTA/seed CI-kazançsız, focal CNN'de geçemedi, logit-adj
+aşırı düzeltme, GMU ek kazanç yok). Metodolojik çerçeve; sayı/label değişmedi.
+§9 temiz (path/VLD/sprint 0). 05_discussion 1367→1483 kelime; temiz derleme.
+**Amaç:** Slice M'de eklenen §"Aynı protokol altında CNN füzyonu ile karşılaştırma"yı
+üç `\subsubsection`'a bölmek ve özellikle "ne kattı / neyi neden geride bıraktık"
+eksenini dokümante, metodolojik biçimde derinleştirmek.
+
+**Yapılacaklar (`05_discussion.tex`, mevcut §; label `sec:cnnvit` korunur, alt
+başlığa köprü cümlesi):**
+1. `\subsubsection{Metrik karşılaştırması}` — mevcut `tab:cnnvit` + "istatistiksel
+   denk, ortak nadir-sınıf tavanı" okuması.
+2. `\subsubsection{Gerçekleştirilen yönelimler ve katkıları}` — CNN füzyonundan
+   dönüştürücü-temelli füzyona geçişte *eklenenler*: dönüştürücü omurgalar →
+   dikkat-native yorumlanabilirlik (attention rollout; CNN'de yoktu) + Grad-CAM++/
+   UMAP; faithful GMU değerlendirmesi. **Dürüst nüans:** bunlar makro-F1'i
+   *yükseltmedi* (denk) ama yeni analiz/yorumlanabilirlik kattı.
+3. `\subsubsection{Geride bırakılan teknikler ve gerekçeleri}` — her biri dokümante
+   sebeple: TTA + seed topluluğu (iki ailede de CI düzeyinde kazanç yok), odak kaybı
+   (CNN ailesinde CE'yi geçemediğinden tekrarlanmadı), son-işlem logit düzeltmesi
+   (dengeli örnekleyiciyle aşırı düzeltme), GMU (iki ailede de ek kazanç yok).
+
+**Kısıtlar:** Metodolojik çerçeve — proje-tarihi/sprint anlatısı YOK (§9); gövdede
+repo-path/VLD-PLD yok. Her "kattı/katmadı/bırakıldı" iddiası dokümante sonuca bağlı
+(McNemar, GMU/TTA/seed/logit-adj negatifleri, CNN FINAL_MODEL); uydurma yok; SOTA yok;
+macro-F1 headline. Geride-bırakma sebepleri yöntem-düzeyi (tooling/kütüphane gerekçesi
+rapora girmez).
+**Kabul:** § üç alt başlığa bölünmüş + köprü; çapraz-yönelim eksenleri kanıta bağlı;
+mevcut sayılar/label'lar değişmemiş; temiz derleme. **Veri:** ✅ (CNN FINAL_MODEL +
+ViT decisions/results dokümante). **Bağımlılık:** Slice M sonrası.
+
+---
+
 ## Özet matris & sıra
 
 | Slice | Odak | Önem | Veri | Bağımlılık | Durum |
@@ -352,9 +392,10 @@ headline; SOTA yok; temiz derleme. **Veri:** ✅ (CNN dokümante; doğrulanacak)
 | K — Güçlü/zayıf derinleştirme | kanıta-bağlı + 2 alt-alt başlık | Major | ✅ | J, J-2 | ✅ Tamam |
 | L — \subsubsection granülerliği | Yöntem/Sonuçlar/Tartışma derin yapı | Minor | ✅ | J, K | ✅ Tamam |
 | M — Kontrollü CNN vs ViT | aynı-protokol metrik + ortak negatifler + çapraz-yönelim | Major | ✅ | J-2 | ✅ Tamam |
+| M-2 — CNN vs ViT derinleştirme | 3 alt başlık + çapraz-yönelim (ne kattı/neden bırakıldı) | Major | ✅ | M | ✅ Tamam |
 
 **Önerilen sıra (deadline Cuma 2026-06-26):** F → H → G → I → J → J-2 → K → L (tamam)
-→ **M** (kontrollü CNN vs ViT karşılaştırması — ViT MCC çıpasını kullanır).
+→ M (tamam) → **M-2** (CNN vs ViT karşılaştırmasını alt başlıklara böl + çapraz-yönelimi derinleştir).
 
 **Genel not:** Tüm geliştirmeler **yazımı** derinleştirir, sonuçları değil. Yeni
 sayı/atıf uydurulmaz; atıflanacak her stub içeriği önce doğrulanır. Stub'ı olmayan

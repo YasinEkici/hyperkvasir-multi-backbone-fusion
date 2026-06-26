@@ -66,6 +66,7 @@ $5{,}3$--$5{,}9\times$ azaltılarak bütçe içinde tutulmuştur.
   A100 verim kazancı. Eğitim süresi loglanmadığından maliyet, yakınsama epoch'u ve
   göreli verimle ifade edilir.}
   \label{tab:cost}
+  \resizebox{\linewidth}{!}{%
   \begin{tabular}{lccc}
     \toprule
     Yapılandırma & Dondurulmuş (en iyi epoch) & İnce ayar (en iyi epoch)
@@ -75,6 +76,7 @@ $5{,}3$--$5{,}9\times$ azaltılarak bütçe içinde tutulmuştur.
     V+S+B        & 4 & 6 & $\sim\!5{,}9\times$ \\
     \bottomrule
   \end{tabular}
+  }
 \end{table}
 
 \subsection{5-katlı çapraz doğrulama}
@@ -89,24 +91,31 @@ istatistiksel olarak da incelenmiştir.
 
 \begin{table}[H]
   \centering
+  \footnotesize
   \caption{5-katlı CV sıralaması (makro-F1 ortalamasına göre). Önyükleme \%95 GA,
   ayrık OOF test tahminleri üzerinden.}
   \label{tab:cv}
-  \begin{tabular}{llcccc}
+  \resizebox{\linewidth}{!}{%
+  \begin{tabular}{llccccc}
     \toprule
     Yapılandırma & Füzyon & Doğruluk (ort$\pm$std) & Makro-F1 (ort$\pm$std)
-      & Makro-F1 havuz [\%95 GA] \\
+      & Makro-P (ort$\pm$std) & Makro-R (ort$\pm$std) & Makro-F1 havuz [\%95 GA] \\
     \midrule
     \textbf{V+S+B} & \textbf{weighted} & $0{,}8780\pm0{,}0140$
-      & $\mathbf{0{,}6094\pm0{,}0254}$ & $\mathbf{0{,}6119\;[0{,}5930,\,0{,}6295]}$ \\
+      & $\mathbf{0{,}6094\pm0{,}0254}$ & $0{,}6111\pm0{,}0243$
+      & $0{,}6246\pm0{,}0226$ & $\mathbf{0{,}6119\;[0{,}5930,\,0{,}6295]}$ \\
     Swin-T (tek)   & yok      & $0{,}8679\pm0{,}0097$ & $0{,}5969\pm0{,}0261$
+      & $0{,}5958\pm0{,}0267$ & $0{,}6148\pm0{,}0257$
       & $0{,}5985\;[0{,}5806,\,0{,}6152]$ \\
     S+B            & weighted & $0{,}8652\pm0{,}0058$ & $0{,}5879\pm0{,}0111$
+      & $0{,}5826\pm0{,}0138$ & $0{,}6106\pm0{,}0153$
       & $0{,}5893\;[0{,}5736,\,0{,}6054]$ \\
     V+B            & concat   & $0{,}8454\pm0{,}0084$ & $0{,}5727\pm0{,}0149$
+      & $0{,}5728\pm0{,}0137$ & $0{,}6006\pm0{,}0220$
       & $0{,}5753\;[0{,}5638,\,0{,}5863]$ \\
     \bottomrule
   \end{tabular}
+  }
 \end{table}
 
 \begin{figure}[H]
@@ -217,17 +226,18 @@ tahmin ekler, ancak makro-F1 kazancı nadir sınıflarca sınırlanır.
   \caption{Nihai model üzerinde toplamsal teknikler (havuzlanmış OOF makro-F1).
   Hiçbiri nihai modeli değiştirmez; tümü sızıntısızdır.}
   \label{tab:addons}
-  \begin{tabular}{lcc}
+  \footnotesize
+  \begin{tabularx}{\linewidth}{@{}l c X@{}}
     \toprule
     Teknik & Havuz makro-F1 & Not \\
     \midrule
-    Temel (nihai model)        & $0{,}6119$ & headline \\
-    Seed topluluğu             & $0{,}6157$ & GA örtüşür (anlamsız) \\
-    TTA                        & $-$ & GA düzeyinde kazanım yok \\
+    Temel (nihai model)        & $0{,}6119$ & ana sonuç \\
+    Seed topluluğu             & $0{,}6157\;[0{,}5994,\,0{,}6321]$ & küçük artış; GA örtüşüyor; final model değişmedi \\
+    TTA                        & $0{,}6105\;[0{,}5920,\,0{,}6280]$ & kazanım yok; GA örtüşüyor \\
     Logit düzeltmesi ($\tau{=}1$) & $0{,}4911$ & düşürür (aşırı düzeltme) \\
     GMU füzyonu (üçlü, 0.~kat) & $0{,}5525$ & ağırlıklının altında \\
     \bottomrule
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 \begin{figure}[H]
