@@ -1,0 +1,56 @@
+\section{Sonuç}
+\label{sec:conclusion}
+
+Bu çalışmada, HiperKvasir 23-sınıf GI endoskopi sınıflandırması için çoklu ViT
+tabanlı bir özellik füzyonu yaklaşımı sunulmuştur. Üç tamamlayıcı omurganın
+(ViT-B/16, Swin-T, BEiT-B/16) ağırlıklı füzyonunun ince ayarlı sürümü, resmi
+5-katlı protokolde en iyi yapılandırma olmuş; havuzlanmış makro-F1
+$0{,}6119$ (\%95 GA $[0{,}5930,\,0{,}6295]$), doğruluk $\approx 0{,}88$
+elde edilmiştir. Bu yapılandırma, eşli McNemar testinde hem en iyi tekli
+omurgadan hem de en iyi ikili füzyondan istatistiksel olarak anlamlı biçimde
+daha doğrudur.
+
+Çalışmanın temel çıkarımları şunlardır: (i)~çok-omurga füzyonu genel doğruluğa
+anlamlı bir katkı sağlar, ancak makro-F1 kazancı nadir sınıflarca sınırlanır;
+(ii)~ağırlıklı füzyon, birleştirme ve gelişmiş GMU füzyonundan daha iyi/eşdeğer
+sonuç vermiştir; (iii)~son blokların ince ayarı dondurulmuş öznitelik çıkarımını
+geçmiştir;
+(iv)~dengesizlik için ağırlıklı örnekleyici yeterli olup son-işlem logit
+düzeltmesi başarımı düşürmüştür. TTA ve seed topluluğu gibi toplamsal teknikler
+güven aralığı düzeyinde ayırt edilebilir bir iyileşme getirmemiştir; bu, mimarinin
+bu protokolde tavanına ulaştığını gösterir.
+
+\paragraph{Sınırlamalar ve gelecek çalışmalar.} Temel sınırlama, çok düşük
+destekli nadir sınıflardan (ör.\ \texttt{hemorroids}, \texttt{ileum},
+\texttt{ulcerative-colitis-grade-1-2}; destek $\leq 11$) kaynaklanan bir veri
+kıtlığıdır ve makro-F1 tavanını belirler. Bu sınırı ele almak için dört yön umut
+vericidir.
+
+\begin{itemize}
+  \item \textbf{Veri-merkezli çözümler.} Nadir sınıflar için hedefli veri
+        toplama/etiketleme, üretici (difüzyon/GAN) artırma ve sınıf-dengeli
+        kayıplar ile temsilin ve sınıflandırıcının ayrı eğitildiği iki-aşamalı
+        yaklaşımlar. Son-işlem logit düzeltmesi kazanç sağlamadığından,
+        eğitim-içi dengeleme daha umut vericidir~\cite{lin2017focal}.
+  \item \textbf{Kayıp ve hata yapısı.} Ülseratif kolit derecelerinin komşu
+        derecelere karışması, ordinal kayıpları; hemorroid ile retrofleks rektum
+        veya özofajit-a ile normal z-line gibi anatomik komşu çiftler ise
+        ince-taneli ayrım öğrenmeyi motive eder.
+  \item \textbf{Mimari ve verimlilik.} GMU'nun ek kazanç sağlamaması, belirteç
+        düzeyinde veya çapraz-dikkatli füzyonları gündeme getirir; üç omurganın
+        yaklaşık 200 milyon parametrelik maliyeti ise bilgi damıtımı ve
+        parametre-verimli ince ayar (adaptör/LoRA) yönlerini cazip kılar.
+  \item \textbf{Değerlendirme.} Makro-F1 güven aralıklarının kısmen örtüşmesi,
+        daha geniş seed toplulukları ve yapılandırmalar arası eşli istatistiksel
+        testlerle gücün artırılmasını; tek veri kümesi sınırı ise dış veri
+        kümelerinde (ör.\ kapsül endoskopi) doğrulamayı ve dikkat haritalarının
+        nicel sadakat ölçümünü gerektirir.
+\end{itemize}
+
+Bildirilen sayıların tümü kaydedilen değerlendirme çıktılarına dayanır; literatür
+karşılaştırmaları protokol farkları nedeniyle bağlamsaldır ve güncel-en-iyi bir
+başarı iddiasında bulunulmamıştır.
+
+\paragraph{Proje deposu.} Kaynak kod, eğitim çıktıları ve tanıtım videosu
+bağlantısı proje deposunda yer alır:
+\url{https://github.com/YasinEkici/hyperkvasir-multi-backbone-fusion}.

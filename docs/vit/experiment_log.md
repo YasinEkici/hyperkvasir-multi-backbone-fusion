@@ -287,3 +287,95 @@ and trace to a resolved config (provenance gate, CNN D-09 reused).
   5-fold). Triple-GMU regressed sharply (-0.058). Decision: GMU evaluated, no gain;
   **final model stays `11_triple_weighted`** (VLD-18). See VLD-19.
 - Validation: `uv run pytest tests/` passed on 2026-06-24 (`274 passed`).
+
+## 2026-06-24 - Sprint 5 Slice 1: interpretability (rollout + Grad-CAM++)
+
+- Scope: transformer-native interpretability for the frozen final model
+  `11_triple_weighted` (VLD-18). Inference-only from `best.pt`, OOF test fold 0
+  (2122 imgs, leakage-free VLD-13). 0 A100 units; local GPU.
+- Code (new, no train.py change): `scripts/interpret_common.py` (model+OOF
+  loader, denormalize, rollout math, class/example selection),
+  `scripts/interpret_attention_rollout.py` (ViT-B + BEiT-B; timm `fused_attn`
+  toggled off + `attn_drop` hook to capture post-softmax attention, flags
+  restored), `scripts/interpret_gradcam.py` (`GradCAMPlusPlus` + transformer
+  `reshape_transform`; Swin channels-last `(B,7,7,C)` handled + caveat).
+  13 unit tests (`tests/test_interpret.py`).
+- Commands: `uv run python scripts/interpret_attention_rollout.py --run
+  11_triple_weighted_cv` and `... interpret_gradcam.py --run 11_triple_weighted_cv`.
+- Selected classes (auto, per-class F1 from metrics.json): best = retroflex-stomach
+  / normal-pylorus / retroflex-rectum; worst = ulcerative-colitis-grade-2-3 /
+  -grade-1-2 / hemorroids. Failure cases included (e.g. UC 2-3 → pred 3).
+- Output: 12 PNGs under `reports/vit/figures/` (145–628 KB each), traceable to
+  `results/vit/runs/11_triple_weighted_cv/best.pt`. Swin maps finite (no fallback).
+- Validation: `uv run pytest tests/` → `287 passed` (2026-06-24);
+  `src/models/backbones.py` + `vit_backbones.py` untouched; checkpoints gitignored.
+
+## 2026-06-24 - Sprint 5 Slice 2: feature-space analysis (UMAP)
+
+- Scope: UMAP (McInnes 2018) of the frozen final model's 512-d fused + per-branch
+  features. Inference-only from `best.pt`, fold-0 OOF test (2122, leakage-free
+  VLD-13). 0 A100; local GPU. Champion unchanged (visualisation, not a metric).
+- Code: `scripts/interpret_umap.py` (new); `extract_features` (calls trained
+  projection/fusion submodules, no `full_model.py` edit) + `subsample_indices_per_class`
+  added to `scripts/interpret_common.py`. 2 new unit tests (15 total in
+  `tests/test_interpret.py`).
+- Command: `uv run python scripts/interpret_umap.py --run 11_triple_weighted_cv`.
+- Output: `reports/vit/figures/umap_fused.png` (75 KB) + `umap_branches.png`
+  (181 KB), `random_state=42`, 150 pts/class cap (1753/2122 plotted), traceable to
+  `results/vit/runs/11_triple_weighted_cv/best.pt`.
+- Observations (qualitative, for §5.5): distinct classes separate cleanly; the UC
+  grades overlap (rare-class macro-F1 ceiling); ViT-B/Swin-T projections cleaner
+  than BEiT-B.
+- Validation: `uv run pytest tests/` → `289 passed` (2026-06-24); locked files
+  (`backbones.py`, `vit_backbones.py`, configs, decisions) untouched; figures small,
+  checkpoints gitignored.
+
+## 2026-06-24 - Sprint 5 Slice 3: leakage-free add-ons (logit adjustment + McNemar)
+
+- Scope: two additive, inference-only, leakage-free analyses (VLD-20); champion
+  `11_triple_weighted` unchanged. 0 A100.
+- Code: `scripts/eval_logit_adjust.py` (recompute OOF logits from best.pt per fold,
+  subtract τ·log(train_prior), τ sweep + bootstrap CI, built-in τ=0 vs stored
+  check), `scripts/stats_mcnemar.py` (paired OOF from stored predictions.npz,
+  2×2 table + exact binomial p). Pure helpers (class_log_prior, logit_adjust,
+  mcnemar_contingency, mcnemar_pvalue, predict_logits) in interpret_common; 8 new
+  tests (`tests/test_interpret.py`, 23 total).
+- Commands: `uv run python scripts/eval_logit_adjust.py --run 11_triple_weighted_cv`;
+  `uv run python scripts/stats_mcnemar.py --champion 11_triple_weighted_cv
+  --baseline 02_single_swin_t_cv` (and `--baseline 09_pair_swin_t_beit_b_weighted_cv`).
+- Logit adjustment (OOF macro-F1): τ=0 0.6118 / τ=0.5 0.6022 / τ=1.0 0.4911 /
+  τ=1.5 0.1079 / τ=2.0 0.0301 — monotonic decline (over-correction vs the balanced
+  sampler). Figure `reports/vit/figures/logit_adjust_tau.png`. Honest negative.
+- McNemar (N=10662): vs single Swin-T χ²cc 15.25 p=9.2e-05 (422 vs 315); vs pair
+  S+B χ²cc 25.25 p=4.7e-07 (423 vs 288) — champion significantly more accurate
+  (accuracy-level, complements the CI-overlapping macro-F1).
+- Built-in check: τ=0 reproduces stored OOF preds 10661/10662 (1 near-tie flip,
+  bf16/TF32 vs fp32, VLD-17). Labels exact-match all folds.
+- Validation: `uv run pytest tests/` → `297 passed` (2026-06-24); `backbones.py` /
+  `vit_backbones.py` / configs untouched; final-model numbers unchanged; only small
+  PNG committed, checkpoints gitignored.
+
+## 2026-06-24 - Sprint 5 Slice 4: LaTeX report
+
+- Scope: full academic-Turkish report under `reports/vit/` (project_plan §10 +
+  §11 checklist). Mirrors the CNN report template; cross-engine (`iftex`/`fontspec`)
+  so it builds on pdfLaTeX/Overleaf (target) and local `tectonic`.
+- Figures (inference-free, pooled OOF n=10662, leakage-free): new
+  `scripts/make_vit_report_figures.py` → `confusion_matrix.png`, `per_class_f1.png`,
+  `training_curves.png`, `cv_macrof1_bar.png` + `results/vit/tables/per_class_champion.{csv,md}`.
+- Files: `reports/vit/main.tex`, `sections/{01_introduction,01b_related_work,
+  02_methodology,03_experimental_setup,04_results,05_discussion,06_conclusion}.tex`,
+  `references.bib`, `.gitignore`. Architecture = TikZ.
+- Reference stubs: `references/methodology_evaluation/mcnemar_dietterich_1998/paper.md`,
+  `references/methodology_imbalance/logit_adjustment_menon_2020_iclr/paper.md`.
+- Build: `cd reports/vit && tectonic main.tex` → main.pdf (~1.2 MB). 0 undefined
+  citations, 0 undefined refs, 0 missing Turkish glyphs, 16 bibitems. Build
+  intermediates gitignored.
+- LaTeX gotcha logged: Turkish babel makes `=` an active shorthand, which breaks
+  `=` inside `\includegraphics[width=...]` and TikZ option lists →
+  `\AtBeginDocument{\shorthandoff{=}}` fixes it globally.
+- All numbers trace to `cv_fold5_ranked` / `metrics.json` / `predictions.npz`;
+  literature is contextual only (no SOTA claim, VLD-10); negatives honest (GMU/TTA/
+  seed-ens/logit-adj); McNemar significance reported.
+- Validation: `uv run pytest tests/` → `297 passed`; locked files / final-model
+  numbers untouched. Remaining: student names + YouTube link (Slice 5).

@@ -1,149 +1,229 @@
-# Multi-CNN Feature Fusion for HyperKvasir 23-Class Classification
+# HyperKvasir Multi-Backbone Feature Fusion
 
-This repository contains a PyTorch implementation of a multi-CNN feature-fusion
-classifier for the HyperKvasir 23-class gastrointestinal endoscopy benchmark.
-It was built as a Deep Learning course term project with a focus on controlled
-ablation, reproducibility, and honest reporting under class imbalance.
+This repository contains two related Deep Learning course projects on the
+HyperKvasir 23-class gastrointestinal endoscopy image-classification benchmark:
 
-The core idea is simple: three pretrained CNN backbones learn complementary
-visual representations, each branch is projected into a shared feature space,
-the projected vectors are fused, and a fixed MLP classifier predicts one of the
-23 endoscopy classes.
+- **CNN fusion project:** completed and frozen at the `cnn-submission` state.
+- **ViT fusion project:** final report work under `docs/vit/`, `configs/vit/`,
+  `results/vit/`, and `reports/vit/`.
 
-## What This Project Adds
+Both projects share the same core engine (`src/`, `scripts/`, `data/`,
+`references/`, evaluation utilities), but their decisions, reports, and result
+artifacts are separated.
 
-The assignment required three CNN models, feature extraction, feature fusion,
-and an MLP classifier. This project implements that baseline, then extends it
-with a stronger experimental protocol:
+Youtube video explaining the CNN backbones: https://www.youtube.com/watch?v=odPTc5wz2Cc&t=347s (in Turkish)
 
-- Three controlled torchvision backbones: ResNet50, MobileNetV2, EfficientNetB0.
-- Branch-wise projection to a common 512-dimensional feature space before
-  fusion.
-- Mandatory fusion methods: concatenation and learnable weighted fusion.
-- Advanced fusion ablation: GMU, with AFF and LMF implemented as stretch modules.
-- Frozen feature extraction and end-to-end fine-tuning variants.
-- Official HyperKvasir 5-fold protocol with leakage-checked fold manifests.
-- Macro-F1 as the headline metric because the dataset is highly imbalanced.
-- Bootstrap 95% confidence intervals on pooled 5-fold predictions.
-- Inference-only Test-Time Augmentation (TTA) on the final frozen model.
-- Leakage-free seed ensembling policy documented in `docs/decisions.md`.
-- Report-ready figures and tables generated from saved predictions/logs.
+Youtube video explaining the Vision Transformer (ViT) backbones and comparing it with CNNs: https://www.youtube.com/watch?v=r9erkNX8rO0 (in Turkish)
 
-The project does not claim state of the art. External papers that use different
-splits, class counts, or augmentation protocols are treated as contextual
-comparisons, not direct head-to-head baselines.
+## Repository Status
 
-## Final Result Snapshot
+| Track | Status | Main docs | Main outputs |
+|---|---|---|---|
+| CNN fusion | Completed / frozen | `project_structure.md`, `project_plan.md`, `docs/decisions.md`, `docs/FINAL_MODEL.md` | `results/`, `reports/final/` |
+| ViT fusion | Final report/project work | `docs/vit/project_structure.md`, `docs/vit/project_plan.md`, `docs/vit/decisions.md`, `docs/vit/results_progress.md` | `results/vit/`, `reports/vit/` |
 
-Final frozen model: `11_triple_weighted_finetune_wide_official` + deterministic
-4-view TTA.
+The root CNN files remain valid for the CNN submission. ViT-specific work is
+additive and namespaced under `vit/` where possible.
 
-| Metric | Value | Source |
-|---|---:|---|
-| Macro-F1 | 0.6075 | `results/tables/ci_11_triple_weighted_finetune_wide_official_tta.json` |
-| 95% CI for macro-F1 | [0.5860, 0.6296] | same |
-| Accuracy / micro-F1 | 0.8765 | `results/tables/extra_metrics_11_triple_weighted_finetune_wide_official_tta.json` |
-| Weighted-F1 | 0.8761 | same |
-| MCC | 0.8662 | same |
-| Pooled test samples | 10,662 | official 5-fold pooled test predictions |
+## Project Overview
 
-Important caveat: TTA improved the point estimate over the base exp 11 model
-(0.6075 vs. 0.6000 macro-F1), but the 95% confidence intervals overlap. It is
-reported as a useful zero-training-cost inference improvement, not as a
-statistically conclusive gain.
+The shared task is multi-class classification of the **HyperKvasir 23-class
+labeled subset**: 10,662 gastrointestinal endoscopy images with severe class
+imbalance. Some classes contain hundreds or more than one thousand images, while
+rare classes have only a few samples.
 
-## Architecture
+Both projects use the same high-level idea:
 
-```text
-Image 224x224
-   |
-   +-- ResNet50        -> 2048-d feature -> Linear + LayerNorm + GELU -> 512-d
-   +-- MobileNetV2     -> 1280-d feature -> Linear + LayerNorm + GELU -> 512-d
-   +-- EfficientNetB0  -> 1280-d feature -> Linear + LayerNorm + GELU -> 512-d
-                                                        |
-                                                fusion module
-                                      concat / weighted / GMU / AFF / LMF
-                                                        |
-                                                MLP classifier
-                                                        |
-                                                  23 classes
-```
+1. Extract one feature vector from each pretrained backbone.
+2. Project each branch to a common 512-dimensional space.
+3. Fuse the projected features.
+4. Classify the fused representation with an MLP.
 
-Design constraints:
-
-- The required backbones are loaded through `torchvision`, not `timm`.
-- The classifier is always an MLP. SVM, RandomForest, and XGBoost are not used
-  as official baselines.
-- Frozen backbones have `requires_grad=False`; BatchNorm statistics remain
-  frozen during fine-tuning unless an explicit ablation changes that.
-- Fine-tuning updates the last three backbone blocks in the main recipe.
-
-## Dataset
-
-Primary dataset: HyperKvasir labeled image subset.
-
-| Property | Value |
-|---|---|
-| Classes | 23 |
-| Images | 10,662 |
-| Task | Multi-class gastrointestinal endoscopy image classification |
-| License | CC BY 4.0 |
-| Main protocol | Official HyperKvasir 5-fold split |
-| Image size used here | 224x224 |
-| Normalization | ImageNet mean/std |
-
-The dataset is severely imbalanced. Some classes contain hundreds or more than
-one thousand examples, while rare classes have only a few samples. For this
-reason, macro-F1 is the headline metric and accuracy is only a supporting metric.
-
-Expected local data layout:
-
-```text
-<DATA_ROOT>/
-  hyperkvasir/
-    labeled-images/
-      class_a/
-      class_b/
-      ...
-```
-
-The dataset root is configured through `DATA_ROOT` and
-`configs/dataset/hyperkvasir_23class_official.yaml`.
+Macro-F1 is the main metric because accuracy can hide failures on rare classes.
+Accuracy is reported as a supporting metric.
 
 ## Repository Layout
 
-```text
-configs/                 YAML configs for datasets, methods, training, matrix
-data/splits/             Official and materialized fold manifests
-docs/                    Decisions, experiment logs, final model record
-env/                     Colab and environment export files
-references/              Paper markdown and metadata used by the report
-reports/final/           LaTeX report sources and final figures
-results/figures/         Report-ready generated figures
-results/runs/            Metrics, predictions, logs, and local checkpoints
-results/tables/          Ablation tables, CV summaries, CIs, per-class tables
-scripts/                 CLI entry points for data, training, eval, analysis
-src/                     Core data/model/training/evaluation implementation
-tests/                   Unit and smoke tests
+| Path | Purpose |
+|---|---|
+| `src/` | Shared model, data, training, evaluation, and utility code |
+| `scripts/` | Shared command-line entry points for preparation, training, evaluation, analysis, and figures |
+| `configs/` | CNN/root configs and shared dataset configs |
+| `configs/vit/` | ViT method and training configs |
+| `results/` | CNN run outputs, tables, figures, and local artifacts |
+| `results/vit/` | ViT run outputs, tables, figures, and feature caches |
+| `reports/final/` | CNN report sources/artifacts |
+| `reports/vit/` | ViT LaTeX report, PDF, bibliography, and figures |
+| `docs/` | CNN decisions, final-model record, and shared planning docs |
+| `docs/vit/` | ViT decisions, project plan, assignment text, result log, and report plans |
+| `references/` | Local paper stubs and metadata used for report citations |
+| `tests/` | Unit and smoke tests for shared and project-specific code |
+
+Raw datasets, feature caches, checkpoints, and large run artifacts are not meant
+to be included in git or a small course-submission archive.
+
+## CNN Fusion Project
+
+The CNN project is the completed first track. It uses three torchvision
+backbones:
+
+| Backbone | Feature dim |
+|---|---:|
+| ResNet50 | 2048 |
+| MobileNetV2 | 1280 |
+| EfficientNetB0 | 1280 |
+
+CNN branches are projected with `Linear + LayerNorm + GELU` to 512 dimensions.
+The official classifier is always an MLP. Concatenation and weighted fusion are
+the main fusion methods; GMU was also evaluated as an ablation. The CNN track
+uses torchvision for these backbones; `timm` is not used for the CNN backbones.
+BatchNorm handling applies to the CNN fine-tuning path.
+
+Final CNN model, from `docs/FINAL_MODEL.md`:
+
+| Field | Value |
+|---|---|
+| Experiment | `11_triple_weighted_finetune_wide_official` + deterministic TTA |
+| Backbones | ResNet50 + MobileNetV2 + EfficientNetB0 |
+| Fusion | Weighted fusion |
+| Protocol | Official 5-fold, pooled OOF predictions, n=10,662 |
+| Macro-F1 | 0.6075 [0.5860, 0.6296] |
+| Accuracy | 0.8765 |
+| MCC | 0.8662 |
+
+The CNN project should be treated as frozen. See `docs/FINAL_MODEL.md`,
+`docs/results_progress.md`, and `results/tables/` for audit details.
+
+## ViT Fusion Project
+
+The ViT project implements "Coklu ViT Tabanli Ozellik Fuzyonu ile
+Siniflandirma" on the same HyperKvasir 23-class task.
+
+### Task And Dataset
+
+- Dataset: HyperKvasir 23-class labeled subset.
+- Images: 10,662.
+- Task: gastrointestinal endoscopy image classification.
+- Challenge: severe class imbalance and visually adjacent classes.
+- Evaluation: official 5-fold leakage-free OOF protocol.
+
+### Backbones
+
+| Backbone | Source | Feature dim | Role |
+|---|---|---:|---|
+| ViT-B/16 | `timm` | 768 | global patch-token representation |
+| Swin-T | `timm` | 768 | hierarchical shifted-window representation |
+| BEiT-B/16 | `timm` | 768 | masked-image-modeling pretraining |
+
+All ViT backbones are loaded with:
+
+```python
+timm.create_model(..., pretrained=True, num_classes=0)
 ```
 
-Large local artifacts are intentionally gitignored:
+The model forward pass returns native pooled features. Swin is not treated as a
+CLS-token model.
 
-- raw datasets under `data/raw/` or external `DATA_ROOT`
-- feature caches under `results/feature_cache/`
-- checkpoints such as `best.pt`, `last.pt`, `ema.pt`
-- reference PDFs and extracted heavy assets
+### Feature Extraction And Projection
 
-## Environment
+Each backbone produces a 768-dimensional pooled feature vector. Each branch then
+uses a 512-dimensional projection:
 
-The project uses `uv` and Python 3.11.
+```text
+768-d feature -> Linear -> LayerNorm -> GELU -> 512-d feature
+```
 
-Validated local stack:
+ViT models use LayerNorm and drop-path behavior. CNN BatchNorm-freezing logic is
+not part of the ViT method.
 
-- Python 3.11.9
-- PyTorch 2.12.0+cu132
-- torchvision 0.27.0+cu132
-- NVIDIA GeForce RTX 5080 Laptop GPU
+### Fusion Strategies
+
+The core fusion methods are:
+
+- **Concatenation:** concatenate projected branch vectors.
+- **Weighted fusion:** learn scalar branch weights and combine 512-d vectors.
+- **GMU:** evaluated as an additional gated-fusion ablation; it did not beat the
+  final weighted fusion model.
+
+The classifier remains MLP-only across all ViT experiments.
+
+### Transfer Learning Modes
+
+The ViT project evaluates:
+
+- **Frozen feature extraction:** backbones fixed, projection/fusion/MLP trained.
+- **Fine-tuning:** last 3 blocks for ViT-B/16 and BEiT-B/16, final stage for
+  Swin-T.
+
+Preprocessing uses 224x224 images, ImageNet mean/std, and bicubic interpolation.
+
+### Final ViT Model
+
+Final ViT model:
+
+```text
+11_triple_weighted_cv
+ViT-B/16 + Swin-T + BEiT-B/16 -> 512-d projections -> weighted fusion -> MLP
+```
+
+Main result from `results/vit/tables/cv_fold5_ranked.md`:
+
+| Metric | Value |
+|---|---:|
+| 5-fold mean macro-F1 | 0.6094 +/- 0.0254 |
+| Pooled OOF macro-F1 | 0.6119 [0.5930, 0.6295] |
+| Accuracy mean | 0.8780 +/- 0.0140 |
+| Macro precision mean | 0.6111 +/- 0.0243 |
+| Macro recall mean | 0.6246 +/- 0.0226 |
+
+## ViT Results Summary
+
+| Variant | Macro-F1 | Accuracy | Interpretation |
+|---|---:|---:|---|
+| Final triple weighted, `11_triple_weighted_cv` | 0.6119 [0.5930, 0.6295] pooled; 0.6094 +/- 0.0254 mean | 0.8780 +/- 0.0140 | Selected final ViT model |
+| Best single, `02_single_swin_t_cv` | 0.5985 [0.5806, 0.6152] pooled; 0.5969 +/- 0.0261 mean | 0.8679 +/- 0.0097 | Strongest single backbone |
+| Best pair, `09_pair_swin_t_beit_b_weighted_cv` | 0.5893 [0.5736, 0.6054] pooled; 0.5879 +/- 0.0111 mean | 0.8652 +/- 0.0058 | Strongest pair baseline |
+| Seed ensemble | 0.6157 [0.5994, 0.6321] | not the selection metric | Small gain; CI overlaps; final model unchanged |
+| TTA | 0.6105 [0.5920, 0.6280] | not promoted | No macro-F1 gain |
+| Triple GMU fold-0 | 0.5525 | 0.8355 | Negative ablation; below weighted fusion |
+| Logit adjustment, tau=1.0 | about 0.4911 | not promoted | Negative result; over-correction |
+
+McNemar's test shows the final ViT model is significantly better at the
+accuracy level than the best single and best pair models. This is not a
+macro-F1 significance test.
+
+## CNN vs ViT Comparison
+
+This comparison summarizes two separate project tracks in the same repository.
+It should not be read as a general claim that one backbone family is universally
+better.
+
+| Aspect | CNN fusion | ViT fusion |
+|---|---|---|
+| Project status | Completed/frozen | Final report/project work |
+| Backbones | ResNet50, MobileNetV2, EfficientNetB0 | ViT-B/16, Swin-T, BEiT-B/16 |
+| Backbone library | torchvision | timm |
+| Native feature dims | 2048 / 1280 / 1280 | 768 / 768 / 768 |
+| Projection | 512-d `Linear + LayerNorm + GELU` | 512-d `Linear + LayerNorm + GELU` |
+| Fusion/classifier | concat, weighted, GMU + MLP | concat, weighted, GMU + MLP |
+| Transfer detail | CNN block fine-tuning with BatchNorm considerations | last transformer blocks/final Swin stage; no BatchNorm logic |
+| Main protocol | official 5-fold OOF | official 5-fold OOF |
+
+| Final model | Macro-F1 | Accuracy | MCC |
+|---|---:|---:|---:|
+| CNN triple weighted + TTA | 0.6075 [0.5860, 0.6296] | 0.8765 | 0.8662 |
+| ViT triple weighted | 0.6119 [0.5930, 0.6295] | about 0.878 | 0.868 |
+
+The confidence intervals overlap, and both tracks are bounded by the same
+rare-class limitation. The careful conclusion is that the two families are very
+close under this protocol; the ViT track adds transformer-native analysis such
+as attention rollout, while the CNN track remains the frozen submitted baseline.
+Literature comparisons in the ViT report are contextual because splits, class
+counts, metrics, and protocols differ.
+
+## Reproducibility And Running
+
+The project uses Python 3.11 and `uv`.
 
 Install dependencies:
 
@@ -154,250 +234,65 @@ uv sync
 Check the environment:
 
 ```bash
-uv run python -c "import torch, torchvision; print(torch.__version__, torchvision.__version__, torch.cuda.is_available())"
+uv run python -c "import torch, torchvision, timm; print(torch.__version__, torchvision.__version__, timm.__version__, torch.cuda.is_available())"
 ```
 
-Run the full test suite:
+Run tests:
 
 ```bash
 uv run pytest tests/ -q
 ```
 
-Colab fallback:
+Prepare HyperKvasir manifests:
 
 ```bash
-pip install -r env/requirements-colab.txt
+uv run python scripts/prepare_data.py --dataset hyperkvasir --config configs/dataset/hyperkvasir_23class_official.yaml
+uv run python scripts/make_splits.py --config configs/dataset/hyperkvasir_23class_official.yaml
 ```
 
-## Data Preparation
-
-Set the dataset root:
+Example CNN run:
 
 ```bash
-# PowerShell
-$env:DATA_ROOT="D:\datasets"
+uv run python scripts/train.py --config configs/experiment_matrix.yaml --experiment 11_triple_weighted_finetune_wide_official --fold 0 --device cuda
 ```
 
-Create the image manifest:
+Example ViT run:
 
 ```bash
-uv run python scripts/prepare_data.py \
-  --dataset hyperkvasir \
-  --config configs/dataset/hyperkvasir_23class_official.yaml
+uv run python scripts/train.py --config configs/vit/experiment_matrix.yaml --experiment 11_triple_weighted_finetune_official --fold 0 --device cuda
 ```
 
-Materialize official 5-fold train/validation/test manifests:
+The commands assume the dataset is available locally and `DATA_ROOT` is set.
+Large checkpoints and raw data are not included.
 
-```bash
-uv run python scripts/make_splits.py \
-  --config configs/dataset/hyperkvasir_23class_official.yaml
-```
+## Reports And Submission Artifacts
 
-The official protocol uses each fold once as test, the next fold as validation,
-and the remaining three folds as training. The materialized files live under:
+ViT report:
 
-```text
-data/splits/hyperkvasir_official_5fold/fold_0.csv
-data/splits/hyperkvasir_official_5fold/fold_1.csv
-...
-data/splits/hyperkvasir_official_5fold/fold_4.csv
-```
+- PDF: `reports/vit/main.pdf`
+- LaTeX source: `reports/vit/main.tex`
+- Sections: `reports/vit/sections/`
+- Figures: `reports/vit/figures/`
+- Result tables: `results/vit/tables/`
+- Bibliography: `reports/vit/references.bib`
 
-## Running Experiments
+CNN report/artifacts:
 
-All reportable experiments are declared in:
+- Report directory: `reports/final/`
+- Final model record: `docs/FINAL_MODEL.md`
+- Result tables: `results/tables/`
+- Figures: `results/figures/`
 
-```text
-configs/experiment_matrix.yaml
-```
+For a small submission archive, include source code, configs, docs, report PDF,
+report figures/tables, and the README. Do not include raw data, feature caches,
+or model checkpoints unless explicitly allowed by the submission size limit.
 
-Train one experiment:
+## References
 
-```bash
-uv run python scripts/train.py \
-  --config configs/experiment_matrix.yaml \
-  --experiment 11_triple_weighted_finetune_wide_official \
-  --fold 0 \
-  --device cuda
-```
-
-Run the selected 5-fold CV experiment:
-
-```bash
-uv run python scripts/run_cv.py \
-  --config configs/experiment_matrix.yaml \
-  --experiment 11_triple_weighted_finetune_wide_official \
-  --folds 0 1 2 3 4 \
-  --device cuda
-```
-
-Run deterministic TTA evaluation for the frozen final model:
-
-```bash
-uv run python scripts/evaluate.py \
-  --experiment 11_triple_weighted_finetune_wide_official \
-  --folds 0 1 2 3 4 \
-  --tta \
-  --device cuda
-```
-
-Aggregate 5-fold summaries and confidence intervals:
-
-```bash
-uv run python scripts/aggregate_cv.py \
-  --experiment 11_triple_weighted_finetune_wide_official
-
-uv run python scripts/compute_ci.py \
-  --experiment 11_triple_weighted_finetune_wide_official \
-  --predictions predictions_tta.npz
-```
-
-Generate report-ready figures and tables from saved predictions/logs:
-
-```bash
-uv run python scripts/generate_report_tables.py
-uv run python scripts/analyze_frozen_model.py
-uv run python scripts/plot_results.py
-```
-
-## Experiment Matrix Summary
-
-The experiments cover:
-
-| Axis | Covered variants |
-|---|---|
-| Single CNN | ResNet50, MobileNetV2, EfficientNetB0 |
-| Pair fusion | R+M concat, R+E concat, M+E concat |
-| Triple fusion | concat, weighted, GMU |
-| Transfer learning | frozen extraction, fine-tune last 3 blocks |
-| Extra ablations | focal loss, TTA, leakage-free seed ensemble |
-
-Key selected 5-fold results before TTA:
-
-| Experiment | Method | Fusion | CV macro-F1 |
-|---|---|---|---:|
-| `13_single_efficientnetb0_finetune_wide_official` | EfficientNetB0 | none | 0.5690 +/- 0.0158 |
-| `14_pair_m_e_finetune_wide_official` | MobileNetV2 + EfficientNetB0 | concat | 0.5670 +/- 0.0089 |
-| `10_triple_concat_finetune_wide_official` | R + M + E | concat | 0.5691 +/- 0.0064 |
-| `11_triple_weighted_finetune_wide_official` | R + M + E | weighted | 0.5892 +/- 0.0102 |
-| `15_triple_gmu_finetune_wide_official` | R + M + E | GMU | 0.5672 +/- 0.0049 |
-
-The weighted triple fusion model is the best 5-fold CV configuration. GMU was
-implemented and tested, but did not outperform simpler fusion under this
-protocol.
-
-## Final Inference Recipe
-
-The final model uses deterministic 4-view TTA:
-
-1. `base`: Resize(256) -> CenterCrop(224)
-2. `hflip`: base + horizontal flip
-3. `scale`: Resize(224) -> CenterCrop(224)
-4. `scale_hflip`: scale + horizontal flip
-
-Softmax probabilities are averaged per image, then argmax is taken. The TTA
-policy is implemented in `scripts/evaluate.py` and documented in
-`docs/FINAL_MODEL.md`.
-
-## Training Recipe
-
-Main fine-tuning config: `configs/training/finetune_wide.yaml`.
-
-| Setting | Value |
-|---|---|
-| Epoch budget | 60 |
-| Batch size | 64 |
-| Mixed precision | enabled |
-| Unfrozen blocks | last 3 blocks |
-| Optimizer | AdamW |
-| Head LR | 1e-3 |
-| Backbone LR | 1e-4 |
-| LLRD decay | 0.75 |
-| Scheduler | cosine with 5 warmup epochs |
-| Loss | cross-entropy with label smoothing 0.1 |
-| Augmentation | RandAugment, horizontal flip, CutMix |
-| EMA | decay 0.999, start epoch 5 |
-| Early stopping | validation macro-F1, patience 8 |
-| Sampler | weighted sampler from training fold only |
-
-Focal loss was tested as an ablation in
-`configs/training/finetune_wide_focal.yaml`. It did not beat the cross-entropy
-champion.
-
-## Result Artifacts
-
-Useful files for report and audit:
-
-```text
-docs/FINAL_MODEL.md
-docs/results_progress.md
-docs/decisions.md
-results/tables/ablation_table.md
-results/tables/per_class_frozen_tta.md
-results/tables/training_time.md
-results/tables/ci_11_triple_weighted_finetune_wide_official_tta.json
-results/tables/extra_metrics_11_triple_weighted_finetune_wide_official_tta.json
-results/figures/confusion_matrix_frozen_tta.png
-results/figures/per_class_f1_frozen_tta.png
-results/figures/comparison_bar_chart.png
-reports/final/sections/
-reports/final/figures/
-```
-
-Each headline metric in the report should trace to either a `metrics.json`,
-`results/tables/*.json`, or a documented paper location under `references/`.
-
-## Testing
-
-Run everything:
-
-```bash
-uv run pytest tests/ -q
-```
-
-The suite covers:
-
-- backbone feature dimensions and frozen BatchNorm behavior
-- projection and fusion modules
-- frozen-head training path
-- fine-tuning trainer smoke behavior
-- metrics and statistical confidence intervals
-- focal loss
-- EMA, LLRD, TTA, ensembling
-- data split and feature-cache utilities
-
-Latest local verification during README refresh:
-
-```text
-176 passed
-```
-## Design Integrity Rules
-
-The following rules are intentional and should not be changed silently:
-
-- Use `uv sync` and `uv run ...`; do not manually maintain `requirements.txt`.
-- Keep final model logic under `src/`.
-- Use torchvision for ResNet50, MobileNetV2, and EfficientNetB0.
-- Keep the classifier fixed as an MLP.
-- Do not average across folds before computing macro-F1 unless pooling
-  predictions for a documented pooled estimate.
-- Do not compare against external papers as direct baselines unless dataset,
-  split, class count, metric, and architecture protocol match.
-- Do not commit raw data, feature caches, checkpoints, or large generated
-  artifacts.
-
-## References and Documentation
-
-Start here:
-
-- `project_structure.md`: architecture facts and module contracts
-- `project_plan.md`: locked project decisions and experiment plan
-- `docs/FINAL_MODEL.md`: frozen final model and inference recipe
-- `docs/results_progress.md`: chronological experiment record
-- `docs/decisions.md`: locked decisions and later rationale
-- `references/INDEX.md`: paper index and comparability caveats
-
-Primary dataset citation:
+Primary dataset:
 
 - Borgli et al. 2020, "HyperKvasir, a comprehensive multi-class image and video
   dataset for gastrointestinal endoscopy", Scientific Data.
+
+The ViT report bibliography is in `reports/vit/references.bib`. Local paper
+stubs and metadata are under `references/`.

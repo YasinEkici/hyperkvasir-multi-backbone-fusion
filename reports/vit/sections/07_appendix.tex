@@ -1,0 +1,67 @@
+\section{Sınıf bazında ayrıntılı metrikler}
+\label{app:perclass}
+
+Tablo~\ref{tab:perclass-full}, nihai modelin havuzlanmış OOF test kümesindeki
+($n = 10{.}662$) 23 sınıfın tamamı için kesinlik, duyarlılık, F1 ve destek
+değerlerini verir (F1'e göre artan sırada). Düşük destekli sınıflarla düşük F1
+arasındaki güçlü ilişki açıkça görülür.
+
+\begin{table}[H]
+  \centering
+  \footnotesize
+  \caption{Nihai model: tüm sınıflar için sınıf bazında metrikler (havuzlanmış OOF).}
+  \label{tab:perclass-full}
+  \begin{tabular}{lcccr}
+    \toprule
+    Sınıf & Kesinlik & Duyarlılık & F1 & Destek \\
+    \midrule
+    hemorroids                     & $0{,}000$ & $0{,}000$ & $0{,}000$ & 6 \\
+    ulcerative-colitis-grade-1-2   & $0{,}000$ & $0{,}000$ & $0{,}000$ & 11 \\
+    ulcerative-colitis-grade-2-3   & $0{,}054$ & $0{,}071$ & $0{,}062$ & 28 \\
+    ileum                          & $0{,}500$ & $0{,}111$ & $0{,}182$ & 9 \\
+    short-segment-barretts         & $0{,}200$ & $0{,}189$ & $0{,}194$ & 53 \\
+    barretts                       & $0{,}214$ & $0{,}220$ & $0{,}217$ & 41 \\
+    ulcerative-colitis-grade-0-1   & $0{,}222$ & $0{,}286$ & $0{,}250$ & 35 \\
+    ulcerative-colitis-grade-1     & $0{,}470$ & $0{,}388$ & $0{,}425$ & 201 \\
+    oesophagitis-a                 & $0{,}442$ & $0{,}519$ & $0{,}477$ & 403 \\
+    ulcerative-colitis-grade-3     & $0{,}608$ & $0{,}677$ & $0{,}641$ & 133 \\
+    ulcerative-colitis-grade-2     & $0{,}664$ & $0{,}700$ & $0{,}681$ & 443 \\
+    oesophagitis-b-d               & $0{,}660$ & $0{,}746$ & $0{,}700$ & 260 \\
+    normal-z-line                  & $0{,}837$ & $0{,}754$ & $0{,}794$ & 932 \\
+    impacted-stool                 & $0{,}692$ & $0{,}992$ & $0{,}815$ & 131 \\
+    dyed-resection-margins         & $0{,}932$ & $0{,}894$ & $0{,}912$ & 989 \\
+    dyed-lifted-polyps             & $0{,}896$ & $0{,}937$ & $0{,}916$ & 1002 \\
+    retroflex-rectum               & $0{,}914$ & $0{,}974$ & $0{,}943$ & 391 \\
+    polyp                          & $0{,}995$ & $0{,}941$ & $0{,}967$ & 1028 \\
+    bbps-2-3                       & $0{,}996$ & $0{,}948$ & $0{,}971$ & 1148 \\
+    bbps-0-1                       & $0{,}980$ & $0{,}974$ & $0{,}977$ & 646 \\
+    normal-cecum                   & $0{,}977$ & $0{,}976$ & $0{,}977$ & 1009 \\
+    normal-pylorus                 & $0{,}978$ & $0{,}987$ & $0{,}983$ & 999 \\
+    retroflex-stomach              & $0{,}991$ & $0{,}988$ & $0{,}990$ & 764 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Ek yorumlanabilirlik panelleri}
+\label{app:interp}
+
+Şekil~\ref{fig:interp-extra}, ana metni tamamlayan ek örnekler sunar: yaygın ve
+iyi sınıflandırılan bir sınıfta dikkat yayılımı ile çok düşük destekli, hatalı
+sınıflandırılan bir sınıfta Grad-CAM++. Yaygın sınıfta odak klinik bölgede
+toplanırken, nadir sınıfta dağınıklaşır.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}{0.9\linewidth}
+    \includegraphics[width=\linewidth]{rollout_normal-pylorus.png}
+    \caption{Dikkat yayılımı: \texttt{normal-pylorus} (yaygın, doğru).}
+  \end{subfigure}\\[0.6em]
+  \begin{subfigure}{0.9\linewidth}
+    \includegraphics[width=\linewidth]{gradcam_hemorroids.png}
+    \caption{Grad-CAM++: \texttt{hemorroids} (çok düşük destek, hata).}
+  \end{subfigure}
+  \caption{Ek yorumlanabilirlik panelleri. Üst: yaygın bir sınıfta dikkat
+  yayılımı; alt: nadir bir sınıfta Grad-CAM++ (Swin dalı hiyerarşik pencere
+  yerleşimi nedeniyle daha kaba bir harita verir).}
+  \label{fig:interp-extra}
+\end{figure}

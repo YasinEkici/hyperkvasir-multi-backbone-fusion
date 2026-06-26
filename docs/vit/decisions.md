@@ -208,6 +208,32 @@ decisions D-07/D-08/D-09 from `docs/decisions.md` are reused where noted.
   No GMU config was promoted to 5-fold CV; the **final model remains
   `11_triple_weighted`** (VLD-18). GMU is reported as an honest negative result.
 
+## 2026-06-24 — VLD-20: Sprint 5 leakage-free add-ons (logit adjustment + McNemar)
+
+- **Scope:** two ADDITIVE, inference-only, leakage-free analyses for the report —
+  they never re-select the champion (`11_triple_weighted` stays final, VLD-18).
+- **Post-hoc logit adjustment (Menon et al. 2020):** subtract `τ·log(train_prior)`
+  from recomputed OOF test logits (prior from each fold's TRAIN split only,
+  VLD-13). Result is a **clean honest negative**: OOF macro-F1 falls monotonically
+  with τ — τ=0 (baseline) 0.6118 [0.593, 0.629] → τ=0.5 0.6022 → **τ=1.0 (headline)
+  0.4911** [0.481, 0.500] → collapses beyond. **Why:** the model trains with a
+  WeightedRandomSampler (balanced sampling), so its implicit prior is already
+  ~uniform; subtracting the train prior **double-corrects** and over-shifts toward
+  rare classes. Takeaway for §5.5: the balanced sampler is the correct imbalance
+  mechanism here; post-hoc prior correction does not help (degrades macro-F1).
+- **McNemar's test (Dietterich 1998), paired OOF (N=10662):** the champion is
+  **significantly more accurate** than the best single backbone
+  (`02_single_swin_t`: 422 vs 315 discordant, χ²cc 15.25, exact p = 9.2e-05) and
+  than the best pair (`09_pair_swin_t_beit_b_weighted`: 423 vs 288, χ²cc 25.25,
+  p = 4.7e-07). Note: this is an **accuracy-level** paired-correctness test, not a
+  macro-F1 test — it complements (does not contradict) the CI-overlapping macro-F1
+  story (fusion adds significantly correct predictions overall, while the macro-F1
+  gain is bounded by the rare classes).
+- Built-in check: τ=0 reproduces the stored champion OOF predictions
+  (10661/10662; 1 near-tie argmax flip from the tuned bf16/TF32 path vs the fp32
+  recompute — VLD-17 "reproducibility approximate"). Does not change any VLD; final
+  model, splits, recipe, and all Sprint 4/4.5 numbers unchanged.
+
 ## Open instructor-ambiguity flags (to address in the report)
 
 1. **§2 "üç farklı ViT" vs §3.1 (two mandatory).** Resolved by N=3 (VLD-02).

@@ -1,0 +1,116 @@
+\section{İlgili Çalışmalar}
+\label{sec:related}
+
+\subsection{HiperKvasir ve gastrointestinal endoskopi sınıflandırması}
+
+HiperKvasir, gastrointestinal endoskopi görüntüleri ve videoları için yayımlanmış
+geniş kapsamlı bir açık veri kümesidir~\cite{borgli2020hyperkvasir}. Bu raporda
+kullanılan denetimli alt küme, 23 sınıfa ayrılmış 10.662 etiketli görüntüden oluşur.
+Sınıflar anatomik işaretleri, patolojik bulguları, tedaviyle ilişkili görüntüleri ve
+görüntü kalitesi kategorilerini birlikte içerdiği için problem sadece patoloji-normal
+ayrımına indirgenemez. Ayrıca sınıf dağılımı belirgin biçimde dengesizdir; çok düşük
+destekli sınıflar, genel doğruluğu yüksek görünen modellerde bile makro-F1'i sınırlayan
+ana etkenlerden biridir.
+
+HiperKvasir ve yakın gastrointestinal endoskopi veri kümeleri üzerinde çeşitli derin
+öğrenme yaklaşımları raporlanmıştır. HSW-ViT, yerel ve uzun menzilli bağımlılıkları
+birlikte ele almak için Swin tabanlı hibrit kaydırılmış pencere tasarımını
+incelemiştir~\cite{wang2023hswvit}. GastroViT, 23 sınıflı HiperKvasir bağlamında
+hafif Vision Transformer tabanlı bir topluluk ve açıklanabilirlik analizleri
+sunmuştur~\cite{gastrovit2025}. EffiMix ise EfficientNet ve özel evrişimsel
+öznitelikleri birleştiren bir füzyon yaklaşımı olarak aynı veri ailesinde yüksek
+toplu başarılar bildirmiştir~\cite{ramamurthy2022effimix}. Bu çalışmalar, endoskopi
+sınıflandırmasında hem yerel doku ipuçlarının hem de daha geniş bağlamsal temsillerin
+önemli olduğunu gösterir. Ancak kullanılan sınıf alt kümeleri, bölme protokolleri,
+ölçütler ve eğitim düzenleri farklıdır; bu nedenle bu rapordaki karşılaştırmalar
+doğrudan sıralama amacı taşımaz, literatür sonuçları bağlamsal referans olarak ele
+alınır.
+
+\subsection{Görüntü dönüştürücüleri ve tıbbi görüntü sınıflandırması}
+
+Vision Transformer (ViT), görüntüyü sabit boyutlu yamalara ayırıp bu yamaları standart
+bir dönüştürücü kodlayıcıya girdi olarak verir; bu tasarım, evrişimsel ağlara göre daha
+zayıf görüntüye özgü önyargılarla küresel patch-token ilişkilerini modellemeye
+dayanır~\cite{dosovitskiy2021vit}. Swin Transformer, öz-dikkati tüm görüntü yerine
+kaydırılmış yerel pencerelerde hesaplayarak hiyerarşik ve çok ölçekli temsiller üretir;
+bu yapı özellikle farklı ölçeklerde görülebilen endoskopik bulgular için yararlı bir
+tamamlayıcı bakış sağlar~\cite{liu2021swin}. BEiT ise maskeli görüntü modellemesiyle
+ön-eğitim görür ve maskelenen görsel token'ları tahmin etmeye dayalı öz-denetimli
+ön-eğitim çizgisini takip eder~\cite{bao2022beit}. Tıbbi görüntülemede etiketleme
+maliyetli olduğundan, böyle ön-eğitim rejimleri sınırlı etiketli veriyle aktarım
+öğrenmesini daha anlamlı hale getirir.
+
+Bu raporda ViT-B/16, Swin-T ve BEiT-B/16 omurgalarının birlikte seçilmesi bu
+tamamlayıcılık fikrine dayanır: ViT-B/16 daha küresel patch-token temsili sağlar,
+Swin-T hiyerarşik kaydırılmış pencere yapısıyla yerel-çok ölçekli bağlamı yakalar,
+BEiT-B/16 ise maskeli görüntü modellemesiyle edinilmiş ön-eğitim bilgisini taşır. Üç
+omurga da önceden eğitilmiş ağırlıklarla kullanılır ve her biri 768 boyutlu
+havuzlanmış özellik üretir; bu özellikler 512 boyutlu dal projeksiyonuna indirgenip
+füzyon katmanına aktarılır. Literatürdeki ViT ailesi çalışmalarından farklı olarak bu
+rapor, tek bir mimarinin üstünlüğünü iddia etmek yerine aynı resmi 5-katlı protokol
+altında üç farklı dönüştürücü önyargısının tekli, ikili ve üçlü katkısını ablation
+mantığıyla değerlendirir.
+
+\subsection{Özellik füzyonu ve çoklu omurga yaklaşımları}
+
+Çoklu omurga veya çok kaynaklı özellik füzyonu, farklı ağların öğrendiği temsilleri
+karar katmanından önce birleştirerek tek bir temsil uzayı oluşturmayı amaçlar. GI
+endoskopi bağlamında CNN özniteliklerinin hibrit bir füzyon hattında birleştirilmesi
+Ahmed ve arkadaşları tarafından incelenmiştir~\cite{ahmed2023hybridfusion}. HEMF,
+tıbbi görüntü sınıflandırmasında yerel ve küresel çok ölçekli özellikleri hiyerarşik
+dikkat mekanizmalarıyla birleştiren daha genel bir tıbbi görüntü füzyon örneği
+sunar~\cite{he2025hemf}. CNN ve Swin temsillerinin birlikte kullanıldığı
+endoskopi/video-kapsül çalışmaları da, evrişimsel yerel desenler ile dönüştürücü
+bağlamsal temsillerinin tamamlayıcı olabileceğini göstermektedir~\cite{subedi2024cnnswin}.
+Kaynak kısıtlı dağıtım senaryolarında ise hafif ViT ailesi modelleri, performans ile
+model boyutu arasındaki dengeyi ayrıca gündeme getirir~\cite{varam2024edgevit}.
+
+Bu rapordaki füzyon tasarımı daha kontrollü tutulmuştur. Her omurga aynı 512 boyutlu
+projeksiyon biçiminden geçirilir; sınıflandırıcı aşamasında ayrı bir klasik
+sınıflandırıcı ailesine geçilmez, bütün deneylerde sabit MLP sınıflandırıcı korunur.
+Böylece performans farkları sınıflandırıcı ailesinden çok omurga seçimi, aktarım modu
+ve füzyon biçimine bağlanabilir. Birleştirme
+(concatenation) ve öğrenilebilir ağırlıklı füzyon pratik ana seçeneklerdir. GMU,
+farklı modalite veya dalların katkısını öğrenilen kapılarla ayarlayan ilkeli bir
+füzyon fikri sunar~\cite{arevalo2017gmu}; bu raporda ise GMU ana yöntem değil, ek
+ablation olarak değerlendirilmiş ve üçlü ağırlıklı füzyonu geçemediği için negatif
+sonuç olarak raporlanmıştır.
+
+\subsection{Dengesizlik, değerlendirme ve yorumlanabilirlik}
+
+HiperKvasir'in 23 sınıflı alt kümesindeki sınıf dengesizliği, değerlendirme ölçütü
+seçimini doğrudan etkiler. Doğruluk, yüksek destekli sınıflarda iyi performans gösteren
+bir model için iyimser bir tablo verebilir; makro-F1 ise her sınıfı eşit ağırlıkla
+ortaladığı için nadir sınıflardaki hataları görünür kılar. Bu nedenle raporda ana
+ölçüt makro-F1, doğruluk ise destekleyici ölçüt olarak kullanılır. Aynı gerekçeyle
+resmi 5-katlı ve sızıntısız OOF değerlendirme protokolü, tek fold sonuçlarının veya
+aynı görüntünün farklı aşamalarda karışmasının doğurabileceği iyimserliği azaltmak
+için merkezîdir. Model karşılaştırmalarında McNemar testi, aynı örnekler üzerindeki
+eşli doğru/yanlış kararlarını sınar; bu test doğruluk düzeyinde yorumlanır ve makro-F1
+için eşdeğer bir anlamlılık testi olarak sunulmaz~\cite{dietterich1998mcnemar}.
+
+Dengesiz veri için literatürde zor örneklere odaklanan focal loss~\cite{lin2017focal}
+ve sınıf öncüllerini logit düzeyinde düzelten yöntemler~\cite{menon2020logitadjust}
+gibi seçenekler bulunur. Bu raporda sınıf dengesizliği öncelikle eğitim örneklemesi,
+makro-F1 merkezli değerlendirme ve sınıf bazlı hata analiziyle ele alınmıştır. Logit
+düzeltmesi ayrıca denenmiş, fakat mevcut eğitim düzeni altında makro-F1'i düşürdüğü
+için final model seçimini değiştirmemiştir. Bu sonuç, dengesizlik yöntemlerinin veri
+protokolü ve eğitim rejimiyle birlikte değerlendirilmesi gerektiğini gösterir.
+
+Yorumlanabilirlik tarafında attention rollout, dönüştürücü katmanlarındaki dikkat
+matrislerini kalıntı bağlantılarla birlikte izleyerek token'lar arası bilgi akışını
+yaklaşıklar~\cite{abnar2020rollout}. Grad-CAM++ sınıfa özgü gradyan ağırlıklarıyla
+ısı haritaları üretir ve Grad-CAM'in yerelleştirme fikrini genişletir
+~\cite{selvaraju2017gradcam,chattopadhyay2018gradcampp}. Rapordaki attention rollout,
+Grad-CAM++ ve UMAP görselleştirmeleri, modelin hangi görüntü bölgelerine ve hangi
+özellik uzayı ayrışmalarına duyarlı olduğuna dair nitel destek sağlar. Bu görseller
+klinik doğrulama veya nicel açıklanabilirlik kanıtı olarak değil, hata analizi ve
+temsil davranışını yorumlama aracı olarak kullanılmalıdır.
+
+Bu literatür çerçevesinde raporun katkısı, farklı protokollerde bildirilmiş tekil
+literatür sayılarıyla yarışmak değil; aynı resmi 5-katlı OOF protokolü altında üç
+ViT ailesi omurgasını, tekli/ikili/üçlü ablation düzenini, dondurulmuş özellik çıkarımı
+ile son blok ince ayarını, MLP-only sınıflandırıcıyı ve makro-F1 merkezli raporlamayı
+bir arada kontrol etmektir. Final model seçimi de bu kontrollü kurgu içinde,
+ViT-B/16 + Swin-T + BEiT-B/16 ağırlıklı füzyonunun 5-fold ve pooled OOF sonuçlarına
+dayanır.
